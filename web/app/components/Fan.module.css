@@ -1,0 +1,155 @@
+/*
+ * The fan panel. Sits *on* the field in Damp Earth with a hairline edge — no
+ * shadow (The No-Float Rule), radius 0, and it never wraps the drawing.
+ */
+
+.panel {
+  position: absolute;
+  top: var(--s2);
+  right: var(--s2);
+  /* Clears the scrubber in the field; the plate has none and overrides it. */
+  bottom: var(--fan-bottom, calc(var(--scrubber-h) + var(--s2)));
+  width: min(460px, calc(100% - var(--s4)));
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s2);
+  background: var(--damp-earth);
+  border: var(--hair) solid var(--faint-pulli);
+  overflow-y: auto;
+}
+
+.head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--s1);
+  align-items: start;
+  padding-bottom: var(--s1);
+  border-bottom: var(--hair) solid var(--faint-pulli);
+}
+
+.sub {
+  color: var(--chalk-dust);
+}
+
+.close {
+  background: transparent;
+  border: 0;
+  color: var(--chalk-dust);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close:hover {
+  color: var(--rice-flour);
+}
+
+.notice {
+  margin-top: var(--s1);
+  padding: 6px var(--s1);
+  font-size: var(--t-label);
+  color: var(--chalk-dust);
+  border-left: 2px solid var(--turmeric);
+}
+
+/* Dated strands, newest first. */
+.strands {
+  list-style: none;
+  margin-top: var(--s2);
+}
+
+.strand {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  grid-template-areas:
+    "date who  conf source"
+    "what what what what";
+  gap: 2px var(--s1);
+  padding: var(--s1) 0;
+  border-bottom: var(--hair) solid var(--faint-pulli);
+}
+
+.date {
+  grid-area: date;
+  color: var(--chalk-dust);
+}
+
+.who {
+  grid-area: who;
+  font-weight: 600;
+}
+
+.what {
+  grid-area: what;
+  display: block;
+  color: var(--rice-flour);
+  opacity: var(--op-present);
+}
+
+.role {
+  color: var(--chalk-dust);
+  font-style: normal;
+}
+
+.blocker {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--t-label);
+  color: var(--kaavi);
+}
+
+.conf {
+  grid-area: conf;
+  color: var(--chalk-dust);
+}
+
+.source {
+  grid-area: source;
+  background: transparent;
+  border: 0;
+  border-bottom: var(--hair) solid var(--chalk-dust);
+  color: var(--chalk-dust);
+  cursor: pointer;
+  padding: 0;
+}
+
+.source:hover {
+  color: var(--rice-flour);
+  border-color: var(--rice-flour);
+}
+
+/* The provenance terminus: the raw, unedited update. */
+.raw {
+  margin-top: var(--s2);
+  padding-top: var(--s2);
+  border-top: var(--hair) solid var(--faint-pulli);
+}
+
+.rawHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rawMeta {
+  color: var(--chalk-dust);
+}
+
+.rawSubject {
+  margin-top: var(--s1);
+  font-weight: 600;
+}
+
+.rawBody {
+  margin-top: var(--s1);
+  padding: var(--s1);
+  background: var(--laterite);
+  border: var(--hair) solid var(--faint-pulli);
+  font-family: var(--font-mono);
+  font-size: var(--t-data);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 40vh;
+  overflow-y: auto;
+}

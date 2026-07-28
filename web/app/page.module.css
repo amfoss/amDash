@@ -1,142 +1,447 @@
-.page {
-  --background: #fafafa;
-  --foreground: #fff;
+/*
+ * Hawk-eye field layout. See DESIGN.md § Layout.
+ *
+ * No box-shadow appears in this file, or anywhere in this system: a kolam is
+ * flour lying on the ground and nothing floats above anything. Separation is a
+ * hairline Faint Pulli edge on Damp Earth. Depth is opacity only.
+ */
 
-  --text-primary: #000;
-  --text-secondary: #666;
+.shell {
+  position: relative; /* the fan panel positions against this */
+  display: grid;
+  grid-template-columns: 1fr var(--rail-w);
+  grid-template-rows: var(--toolbar-h) 1fr auto;
+  grid-template-areas:
+    "toolbar toolbar"
+    "field   rail"
+    "consent consent";
+  height: 100dvh;
+  overflow: hidden;
+}
 
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
+/* The plate carries the roster in its own table, so the rail column is not
+   reserved — an empty 300px gutter would read as a missing panel. */
+.shellPlate {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "toolbar"
+    "field"
+    "consent";
+}
 
+/* ── toolbar ──────────────────────────────────────────────────────────────── */
+
+.toolbar {
+  grid-area: toolbar;
   display: flex;
-  flex: 1;
-  flex-direction: column;
+  gap: var(--s3);
   align-items: center;
-  justify-content: center;
-  font-family: var(--font-geist-sans);
-  background-color: var(--background);
+  padding: 0 var(--s2);
+  background: var(--damp-earth);
+  border-bottom: var(--hair) solid var(--faint-pulli);
 }
 
-.main {
-  display: flex;
-  flex: 1;
-  width: 100%;
-  max-width: 800px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  background-color: var(--foreground);
-  padding: 120px 60px;
-}
-
-.intro {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 24px;
-}
-
-.intro h1 {
-  max-width: 320px;
-  font-size: 40px;
+.mark {
+  font-size: var(--t-title);
   font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -2.4px;
-  text-wrap: balance;
-  color: var(--text-primary);
+  letter-spacing: 0.01em;
 }
 
-.intro p {
-  max-width: 440px;
-  font-size: 18px;
-  line-height: 32px;
-  text-wrap: balance;
-  color: var(--text-secondary);
+.markThin {
+  font-weight: 200;
+  color: var(--chalk-dust);
 }
 
-.intro a {
-  font-weight: 500;
-  color: var(--text-primary);
+.window {
+  color: var(--chalk-dust);
 }
 
-.ctas {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  max-width: 440px;
-  gap: 16px;
-  font-size: 14px;
+.search {
+  margin-left: auto;
 }
 
-.ctas a {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 128px;
-  border: 1px solid transparent;
-  transition: 0.2s;
+.search input {
+  width: 240px;
+  padding: 6px var(--s1);
+  background: var(--laterite);
+  border: var(--hair) solid var(--faint-pulli);
+  color: var(--rice-flour);
+}
+
+.search input::placeholder {
+  color: var(--chalk-dust);
+}
+
+.toggle {
+  padding: 6px var(--s2);
+  background: transparent;
+  border: var(--hair) solid var(--chalk-dust);
   cursor: pointer;
-  width: fit-content;
-  font-weight: 500;
 }
 
-a.primary {
-  background: var(--text-primary);
-  color: var(--background);
-  gap: 8px;
+.toggle[aria-pressed="true"] {
+  border-color: var(--rice-flour);
 }
 
-a.secondary {
-  border-color: var(--button-secondary-border);
+/* The drawer's handle. Hidden at desktop width, where the rail is always up;
+   the ≤1024px block below turns it on. Declared before that block so the media
+   query wins on specificity-equal rules. */
+.railToggle {
+  display: none;
+  padding: 6px var(--s2);
+  background: transparent;
+  border: var(--hair) solid var(--chalk-dust);
+  cursor: pointer;
 }
 
-/* Enable hover only on non-touch devices */
-@media (hover: hover) and (pointer: fine) {
-  a.primary:hover {
-    background: var(--button-primary-hover);
-    border-color: transparent;
+.railToggle[aria-expanded="true"] {
+  border-color: var(--rice-flour);
+}
+
+/* ── the field ────────────────────────────────────────────────────────────── */
+
+/* The plate occupies the field region and anchors the fan the same way. */
+.plateWrap {
+  grid-area: field;
+  position: relative;
+  --fan-bottom: var(--s2);
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.fieldWrap {
+  grid-area: field;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.field {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: block;
+}
+
+.thread {
+  transition: opacity var(--dur) var(--ease-out);
+}
+
+.web line {
+  transition: opacity var(--dur-redraw) var(--ease-out);
+}
+
+.dot {
+  cursor: pointer;
+  transition: opacity var(--dur) var(--ease-out);
+}
+
+/* Focus lands on the glyph itself, not on the invisible hit circle — stroking
+   that would draw a box around the dot instead of thickening the mark. The
+   :not(:first-child) skips the hit target, which is always first in the group. */
+.dot,
+.dot:focus,
+.dot:focus-visible {
+  outline: none;
+}
+
+.dot:focus-visible circle:not(:first-child),
+.dot:focus-visible rect,
+.dot:focus-visible path,
+.dot:focus-visible g {
+  stroke: var(--rice-flour);
+  stroke-width: 1.75;
+}
+
+.dotLabel {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.loadingNote {
+  position: absolute;
+  bottom: var(--s3);
+  left: var(--s3);
+  color: var(--chalk-dust);
+}
+
+/* Empty state teaches rather than apologises; it is the common case today. */
+.emptyTeach {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(48ch, 80%);
+  transform: translate(-50%, -50%);
+  padding: var(--s3);
+  background: var(--damp-earth);
+  border: var(--hair) solid var(--faint-pulli);
+}
+
+.emptyTeach h2 {
+  margin-bottom: var(--s1);
+}
+
+.muted {
+  color: var(--chalk-dust);
+  max-width: 70ch;
+}
+
+.centered {
+  margin: auto;
+  padding: var(--s4);
+  max-width: 60ch;
+  display: grid;
+  gap: var(--s2);
+}
+
+/* ── scrubber ─────────────────────────────────────────────────────────────── */
+
+.scrubber {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "label range end"
+    "label days  end";
+  gap: 0 var(--s2);
+  align-items: center;
+  height: var(--scrubber-h);
+  padding: 0 var(--s2);
+  border-top: var(--hair) solid var(--faint-pulli);
+  background: var(--damp-earth);
+}
+
+.scrubLabel {
+  grid-area: label;
+}
+
+.scrubRange {
+  grid-area: range;
+  accent-color: var(--rice-flour);
+}
+
+.scrubEnd {
+  grid-area: end;
+  color: var(--chalk-dust);
+}
+
+.scrubDays {
+  grid-area: days;
+  display: flex;
+  gap: 2px;
+  list-style: none;
+}
+
+.scrubDay {
+  flex: 1;
+  height: 4px;
+  background: var(--rice-flour);
+  opacity: var(--op-present);
+}
+
+.scrubDayOut {
+  opacity: var(--op-ghost);
+}
+
+/* A failed pipeline run is shown honestly rather than as a blank day. */
+.scrubDayFailed {
+  background: var(--kaavi);
+  opacity: 1;
+}
+
+/* No recorded run is not the same as no work — it reads as absence, not error. */
+.scrubDayNoRun {
+  background: var(--faint-pulli);
+  opacity: 1;
+}
+
+/* ── roster rail ──────────────────────────────────────────────────────────── */
+
+.rail {
+  grid-area: rail;
+  padding: var(--s2);
+  overflow-y: auto;
+  background: var(--damp-earth);
+  border-left: var(--hair) solid var(--faint-pulli);
+}
+
+.rail h2 {
+  margin-top: var(--s3);
+  margin-bottom: var(--s1);
+}
+
+.rail h2:first-child {
+  margin-top: 0;
+}
+
+.railNote {
+  font-size: var(--t-label);
+  color: var(--chalk-dust);
+  margin-bottom: var(--s2);
+}
+
+.rosterList {
+  list-style: none;
+}
+
+.rosterRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--s1);
+  align-items: center;
+  width: 100%;
+  padding: 5px 6px;
+  background: transparent;
+  border: 0;
+  border-bottom: var(--hair) solid var(--faint-pulli);
+  text-align: left;
+  cursor: pointer;
+  opacity: var(--op-present);
+  transition: opacity var(--dur) var(--ease-out);
+}
+
+.rosterRow:hover,
+.rosterRowOn {
+  opacity: var(--op-lifted);
+}
+
+.rosterName {
+  font-size: var(--t-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cadence {
+  display: flex;
+  gap: 1.5px;
+  grid-column: 1 / -1;
+}
+
+.cadOn,
+.cadOff {
+  width: 100%;
+  height: 3px;
+  background: var(--rice-flour);
+}
+
+.cadOn {
+  opacity: var(--op-present);
+}
+
+.cadOff {
+  opacity: var(--op-ghost);
+}
+
+.silent {
+  color: var(--chalk-dust);
+  justify-self: end;
+}
+
+.legend {
+  list-style: none;
+  display: grid;
+  gap: 2px;
+}
+
+.legend li {
+  display: flex;
+  gap: var(--s1);
+  align-items: center;
+  font-size: var(--t-label);
+  color: var(--chalk-dust);
+}
+
+/* ── consent ──────────────────────────────────────────────────────────────── */
+
+.consent {
+  grid-area: consent;
+  padding: var(--s1) var(--s2);
+  border-top: var(--hair) solid var(--faint-pulli);
+  background: var(--damp-earth);
+}
+
+.consent p {
+  font-size: var(--t-label);
+  color: var(--chalk-dust);
+  max-width: 100ch;
+}
+
+/* ── responsive: structural, not cosmetic ─────────────────────────────────── */
+
+/* Below 1024px the rail becomes a drawer: the field keeps full width and the
+   roster is summoned rather than permanently covering a third of the drawing. */
+@media (max-width: 1024px) {
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "toolbar"
+      "field"
+      "consent";
   }
 
-  a.secondary:hover {
-    background: var(--button-secondary-hover);
-    border-color: transparent;
+  .rail {
+    position: absolute;
+    top: var(--toolbar-h);
+    right: 0;
+    bottom: 0;
+    width: var(--rail-w);
+    max-width: 86vw;
+    z-index: 20;
+    border-left: var(--hair) solid var(--faint-pulli);
+    transform: translateX(100%);
+    transition: transform var(--dur) var(--ease-out);
+  }
+
+  .railOpen {
+    transform: translateX(0);
+  }
+
+  .railToggle {
+    display: inline-block;
   }
 }
 
-@media (max-width: 600px) {
-  .main {
-    padding: 48px 24px;
+@media (max-width: 640px) {
+  /* The toolbar stops being one row: the mark and window stack, and the search
+     takes the width it needs rather than crushing the title. */
+  .shell,
+  .shellPlate {
+    grid-template-rows: auto 1fr auto;
   }
 
-  .intro {
-    gap: 16px;
+  .toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px var(--s1);
+    padding: var(--s1) var(--s1);
   }
 
-  .intro h1 {
-    font-size: 32px;
-    line-height: 40px;
-    letter-spacing: -1.92px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  .logo {
-    filter: invert();
+  .mark {
+    font-size: var(--t-body);
   }
 
-  .page {
-    --background: #000;
-    --foreground: #000;
+  .window {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    font-size: var(--t-label);
+  }
 
-    --text-primary: #ededed;
-    --text-secondary: #999;
+  .search {
+    grid-row: 3;
+    grid-column: 1 / -1;
+    margin-left: 0;
+  }
 
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
+  .search input {
+    width: 100%;
+  }
+
+  .toggle {
+    grid-row: 1;
+    grid-column: 2;
   }
 }

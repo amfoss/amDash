@@ -14,8 +14,11 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to the repo root: the unanchored "lib/" from the Python template
+# also swallowed web/app/lib/, silently untracking the front end's geometry and
+# types modules.
+/lib/
+/lib64/
 parts/
 sdist/
 var/

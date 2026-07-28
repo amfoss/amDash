@@ -48,6 +48,81 @@ def _rows(cur) -> list[dict]:
     return [dict(r) for r in cur.fetchall()]
 
 
+def _events_by_slug(conn) -> dict[str, int]:
+    return {r["slug"]: r["id"] for r in conn.execute("SELECT id, slug FROM events")}
+
+
+def _aliases(conn, slug: str) -> tuple[list[int], list[int]]:
+    """Every entity id and event id that means `slug`.
+
+    The extractor auto-creates entities whose slug collides with a seeded event
+    (`workshop` is both entity 6 and event 6, `praveshan` both entity 7 and
+    event 2), so one real thing is stored twice. This is an extraction bug, but
+    the pipeline is out of scope for this surface, so the read layer folds the
+    duplicates into one dot and this function is the single place that knows the
+    mapping. If the extractor is ever fixed, this collapses to a no-op.
+    """
+    entity_ids = [
+        r["id"] for r in conn.execute("SELECT id FROM entities WHERE slug = ?", (slug,))
+    ]
+    event_ids = [
+        r["id"] for r in conn.execute("SELECT id FROM events WHERE slug = ?", (slug,))
+    ]
+    return entity_ids, event_ids
+
+
+def _dot_of(c: dict, events_by_slug: dict[str, int]) -> dict:
+    """Which dot a contribution sits on.
+
+    One function so the dots and the threads can never disagree about where a
+    contribution lands.
+
+    Category comes from the entity/event row, not from the contribution, so a
+    dot's identity is stable: the field derives dot position from identity +
+    category, and a dot that reseats itself because a differently-categorised
+    contribution arrived is a mark you cannot learn (DESIGN.md § Layout).
+
+    Unattached work is split one dot per category rather than pooled into a
+    single junk drawer. It is 24 of 66 rows and it is real work — exam prep,
+    faction meetings, OSS issue-hunting — so one undifferentiated blob would be
+    both the biggest dot on the field and the least honest.
+    """
+    if c["entity_id"]:
+        # An auto-entity that duplicates a seeded event resolves to the event:
+        # the seed carries the curated name, so it is the canonical row.
+        twin = events_by_slug.get(c["entity_slug"])
+        if twin is not None:
+            return {
+                "key": f"event:{twin}",
+                "kind": "event",
+                "ref_id": twin,
+                "label": c["entity_slug"],
+                "category": "event",
+            }
+        return {
+            "key": f"entity:{c['entity_id']}",
+            "kind": "entity",
+            "ref_id": c["entity_id"],
+            "label": c["entity_slug"],
+            "category": c["entity_category"] or c["category"],
+        }
+    if c["event_id"]:
+        return {
+            "key": f"event:{c['event_id']}",
+            "kind": "event",
+            "ref_id": c["event_id"],
+            "label": c["event_slug"],
+            "category": "event",
+        }
+    return {
+        "key": f"unattached:{c['category']}",
+        "kind": "unattached",
+        "ref_id": None,
+        "label": c["category"],
+        "category": c["category"],
+    }
+
+
 def _window() -> tuple[str, str]:
     """Resolve the ?from=&to= window, defaulting to the last N days of data.
 
@@ -151,6 +226,7 @@ def field():
                    c.entity_id, c.event_id, c.event_role, c.activity_text,
                    c.collaborator_ids, c.blockers, c.confidence,
                    en.slug AS entity_slug, en.display_name AS entity_name,
+                   en.category AS entity_category,
                    ev.slug AS event_slug, ev.name AS event_name
             FROM contributions c
             LEFT JOIN entities en ON en.id = c.entity_id
@@ -167,32 +243,12 @@ def field():
     # ── dots ──────────────────────────────────────────────────────────────────
     # An entity is a dot. An event with no entity is also a dot, because event
     # work is real work and dropping it would lose 20 of 66 rows.
+    events_by_slug = _events_by_slug(conn)
     dots: dict[str, dict] = {}
     for c in contribs:
-        if c["entity_id"]:
-            key = f"entity:{c['entity_id']}"
-            label, kind = c["entity_slug"], "entity"
-            ref = c["entity_id"]
-        elif c["event_id"]:
-            key = f"event:{c['event_id']}"
-            label, kind = c["event_slug"], "event"
-            ref = c["event_id"]
-        else:
-            key, label, kind, ref = "unattached", "unattached", "unattached", None
-
-        d = dots.setdefault(
-            key,
-            {
-                "key": key,
-                "kind": kind,
-                "ref_id": ref,
-                "label": label,
-                "category": c["category"],
-                "count": 0,
-                "member_ids": [],
-                "event_slug": c["event_slug"],
-            },
-        )
+        seat = _dot_of(c, events_by_slug)
+        c["dot"] = seat["key"]
+        d = dots.setdefault(seat["key"], {**seat, "count": 0, "member_ids": []})
         d["count"] += 1
         if c["member_id"] not in d["member_ids"]:
             d["member_ids"].append(c["member_id"])
@@ -200,16 +256,10 @@ def field():
     # ── threads ───────────────────────────────────────────────────────────────
     threads: dict[int, list[dict]] = defaultdict(list)
     for c in contribs:
-        if c["entity_id"]:
-            key = f"entity:{c['entity_id']}"
-        elif c["event_id"]:
-            key = f"event:{c['event_id']}"
-        else:
-            key = "unattached"
         threads[c["member_id"]].append(
             {
                 "contribution_id": c["id"],
-                "dot": key,
+                "dot": c["dot"],
                 "date": c["date"],
                 "category": c["category"],
                 "email_id": c["email_id"],
@@ -287,7 +337,9 @@ def field():
     return jsonify(
         {
             "window": {"from": frm, "to": to, "days": days},
-            "dots": sorted(dots.values(), key=lambda d: (-d["count"], d["label"])),
+            # Ordered by key, not by count: dot position derives from identity,
+            # so payload order must not imply a rank the field cannot draw.
+            "dots": sorted(dots.values(), key=lambda d: d["key"]),
             "threads": {str(k): v for k, v in threads.items()},
             "members": members,
             "contributions": contribs,
@@ -296,45 +348,93 @@ def field():
     )
 
 
+_FAN_SELECT = """
+    SELECT c.id, c.date, c.activity_text, c.confidence, c.category,
+           c.event_role, c.blockers, c.email_id,
+           m.id AS member_id, m.name AS member_name
+    FROM contributions c
+    JOIN members m ON m.id = c.member_id
+    WHERE {where}
+    ORDER BY c.date DESC, c.id DESC
+"""
+
+
 @app.get("/api/dot/<kind>/<int:ref_id>")
 def dot_history(kind: str, ref_id: int):
-    """The fan: one dot's full contribution history, newest first."""
+    """The fan: one dot's full contribution history, newest first.
+
+    History is gathered across every alias of the dot's slug, matching how
+    /api/field coalesces duplicated entity/event rows. A fan that showed only
+    the 2 rows filed against event `workshop` while its dot was drawn at 15
+    would be lying about the mark the user just touched.
+    """
     if kind not in ("entity", "event"):
         abort(404)
 
     conn = get_conn()
-    col = "entity_id" if kind == "entity" else "event_id"
-    rows = _rows(
-        conn.execute(
-            f"""
-            SELECT c.id, c.date, c.activity_text, c.confidence, c.category,
-                   c.event_role, c.blockers, c.email_id,
-                   m.id AS member_id, m.name AS member_name
-            FROM contributions c
-            JOIN members m ON m.id = c.member_id
-            WHERE c.{col} = ?
-            ORDER BY c.date DESC, c.id DESC
-            """,
-            (ref_id,),
-        )
-    )
-
     if kind == "entity":
-        subject = conn.execute(
+        sql = (
             "SELECT id, slug, display_name, category, origin, status, first_seen_at"
-            " FROM entities WHERE id = ?",
-            (ref_id,),
-        ).fetchone()
+            " FROM entities WHERE id = ?"
+        )
     else:
-        subject = conn.execute(
-            "SELECT id, slug, name AS display_name, description FROM events WHERE id = ?",
-            (ref_id,),
-        ).fetchone()
+        sql = (
+            "SELECT id, slug, name AS display_name, description"
+            " FROM events WHERE id = ?"
+        )
+    subject = conn.execute(sql, (ref_id,)).fetchone()
+    if not subject:
+        conn.close()
+        abort(404)
+
+    entity_ids, event_ids = _aliases(conn, subject["slug"])
+    clauses, params = [], []
+    if entity_ids:
+        clauses.append(f"c.entity_id IN ({','.join('?' * len(entity_ids))})")
+        params += entity_ids
+    if event_ids:
+        clauses.append(f"c.event_id IN ({','.join('?' * len(event_ids))})")
+        params += event_ids
+
+    rows = _rows(
+        conn.execute(_FAN_SELECT.format(where=" OR ".join(clauses)), params)
+    )
     conn.close()
 
-    if not subject:
+    return jsonify(
+        {
+            "kind": kind,
+            "subject": dict(subject),
+            "coalesced": len(entity_ids) + len(event_ids) > 1,
+            "history": rows,
+        }
+    )
+
+
+@app.get("/api/dot/unattached/<category>")
+def unattached_history(category: str):
+    """The fan for work that named no project or event, one dot per category."""
+    if category not in CATEGORIES:
         abort(404)
-    return jsonify({"kind": kind, "subject": dict(subject), "history": rows})
+
+    conn = get_conn()
+    rows = _rows(
+        conn.execute(
+            _FAN_SELECT.format(
+                where="c.entity_id IS NULL AND c.event_id IS NULL AND c.category = ?"
+            ),
+            (category,),
+        )
+    )
+    conn.close()
+    return jsonify(
+        {
+            "kind": "unattached",
+            "subject": {"slug": category, "display_name": category},
+            "coalesced": False,
+            "history": rows,
+        }
+    )
 
 
 @app.get("/api/email/<int:eid>")

@@ -1,0 +1,145 @@
+/*
+ * The plate. Dense, aligned, mono for every number — the field's text
+ * equivalent at full parity, and the primary surface below 640px.
+ */
+
+.plate {
+  padding: var(--s2);
+  overflow-y: auto;
+  background: var(--damp-earth);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: end;
+  padding-bottom: var(--s2);
+  border-bottom: var(--hair) solid var(--faint-pulli);
+}
+
+.control {
+  display: grid;
+  gap: 2px;
+}
+
+.control select {
+  padding: 5px var(--s1);
+  background: var(--laterite);
+  border: var(--hair) solid var(--faint-pulli);
+  color: var(--rice-flour);
+}
+
+.count {
+  margin-left: auto;
+  color: var(--chalk-dust);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--s2);
+}
+
+.table th {
+  text-align: left;
+  padding: var(--s1) var(--s1) 6px 0;
+  border-bottom: var(--hair) solid var(--faint-pulli);
+  position: sticky;
+  top: 0;
+  background: var(--damp-earth);
+}
+
+.table td {
+  padding: 6px var(--s1) 6px 0;
+  border-bottom: var(--hair) solid var(--faint-pulli);
+  vertical-align: top;
+}
+
+.table td:first-child,
+.table th:first-child {
+  white-space: nowrap;
+  color: var(--chalk-dust);
+}
+
+.dotLink {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--rice-flour);
+  cursor: pointer;
+  text-align: left;
+}
+
+.dotLink:hover {
+  text-decoration: underline;
+}
+
+.cat {
+  display: block;
+  color: var(--chalk-dust);
+}
+
+.activity {
+  max-width: 60ch;
+}
+
+.role {
+  color: var(--chalk-dust);
+  font-style: normal;
+}
+
+.blocker {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--t-label);
+  color: var(--kaavi);
+}
+
+.empty {
+  margin-top: var(--s3);
+  color: var(--chalk-dust);
+}
+
+.roster {
+  margin-top: var(--s5);
+}
+
+.roster ul {
+  list-style: none;
+  margin-top: var(--s1);
+  color: var(--chalk-dust);
+}
+
+.note {
+  margin-top: 2px;
+  font-size: var(--t-label);
+  color: var(--chalk-dust);
+  max-width: 70ch;
+}
+
+@media (max-width: 640px) {
+  .plate {
+    padding: var(--s1);
+  }
+
+  .table {
+    font-size: var(--t-label);
+  }
+
+  /* Confidence is a property of the extraction, useful on a laptop and not
+     worth a column of phone width. It stays in the fan, which is where someone
+     checking provenance is already looking. Scoped to the 5-column
+     contributions table so the roster's "last update" column survives. */
+  .contribs td:last-child,
+  .contribs th:last-child {
+    display: none;
+  }
+
+  .activity {
+    max-width: none;
+  }
+}
