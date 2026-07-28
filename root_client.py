@@ -9,7 +9,6 @@ Syncs name, github_handle, active status, and email (used for IMAP sender matchi
 Members no longer returned by root are marked active=0.
 """
 
-import logging
 import os
 import sqlite3
 
@@ -20,8 +19,6 @@ load_dotenv()
 
 ROOT_API_URL = os.environ.get("ROOT_API_URL", "https://root.amfoss.in/")
 ROOT_API_KEY = os.environ.get("ROOT_API_KEY", "")
-
-log = logging.getLogger(__name__)
 
 _QUERY = """
 query {
@@ -63,7 +60,7 @@ def sync_members(conn: sqlite3.Connection) -> dict:
     Returns {"added": int, "updated": int, "deactivated": int}.
     """
     members = _fetch_all_members()
-    log.info("Fetched %d members from root", len(members))
+    print(f"Fetched {len(members)} members from root")
 
     root_ids_seen = set()
     added = updated = deactivated = 0
@@ -149,8 +146,5 @@ def sync_members(conn: sqlite3.Connection) -> dict:
             deactivated += 1
 
     conn.commit()
-    log.info(
-        "Member sync done — added=%d updated=%d deactivated=%d",
-        added, updated, deactivated,
-    )
+    print(f"Member sync done — added={added} updated={updated} deactivated={deactivated}")
     return {"added": added, "updated": updated, "deactivated": deactivated}

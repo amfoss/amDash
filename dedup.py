@@ -7,11 +7,9 @@ each category, then applies the confirmed merges:
   - the loser's status is set to merged_into:<survivor_id>
 
 Usage:
-    python dedup.py            # apply merges
-    python dedup.py --dry-run  # print proposed merges without writing anything
+    python dedup.py
 """
 
-import argparse
 import os
 import sqlite3
 import textwrap
@@ -92,7 +90,6 @@ def _apply_merges(
     merge_groups: list[dict],
     slug_to_row: dict[str, sqlite3.Row],
     conn: sqlite3.Connection,
-    dry_run: bool,
 ) -> int:
     merged = 0
     for group in merge_groups:
@@ -122,27 +119,28 @@ def _apply_merges(
                 )
                 continue
 
-            prefix = "[DRY RUN] " if dry_run else ""
-            print(f"  {prefix}merge '{dup_slug}' → '{survivor_slug}'  ({reason})")
+            n_contribs = conn.execute(
+                "SELECT COUNT(*) FROM contributions WHERE entity_id = ?",
+                (dup["id"],),
+            ).fetchone()[0]
+            conn.execute(
+                "UPDATE contributions SET entity_id = ? WHERE entity_id = ?",
+                (survivor["id"], dup["id"]),
+            )
+            conn.execute(
+                "UPDATE entities SET status = ? WHERE id = ?",
+                (f"merged_into:{survivor['id']}", dup["id"]),
+            )
+            print(f"  MERGED '{dup_slug}' → '{survivor_slug}'  ({reason})  [{n_contribs} contributions repointed]")
+            merged += 1
 
-            if not dry_run:
-                conn.execute(
-                    "UPDATE contributions SET entity_id = ? WHERE entity_id = ?",
-                    (survivor["id"], dup["id"]),
-                )
-                conn.execute(
-                    "UPDATE entities SET status = ? WHERE id = ?",
-                    (f"merged_into:{survivor['id']}", dup["id"]),
-                )
-                merged += 1
-
-    if not dry_run and merged:
+    if merged:
         conn.commit()
 
     return merged
 
 
-def run_dedup(dry_run: bool = False) -> int:
+def run_dedup() -> int:
     conn = get_conn()
     entities = _fetch_active_entities(conn)
 
@@ -176,20 +174,11 @@ def run_dedup(dry_run: bool = False) -> int:
     merge_groups = tool_block.input.get("merge_groups", [])
     print(f"LLM proposed {len(merge_groups)} merge group(s).")
 
-    merged = _apply_merges(merge_groups, slug_to_row, conn, dry_run)
+    merged = _apply_merges(merge_groups, slug_to_row, conn)
     conn.close()
     return merged
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Automated entity dedup pass")
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print proposed merges without writing to the database",
-    )
-    args = parser.parse_args()
-
-    n = run_dedup(dry_run=args.dry_run)
-    if not args.dry_run:
-        print(f"Done — {n} entities merged.")
+    n = run_dedup()
+    print(f"Done — {n} entities merged.")

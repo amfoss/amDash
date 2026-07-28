@@ -3,6 +3,7 @@ import email as email_lib
 import imaplib
 import os
 import re
+import socket
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -72,41 +73,50 @@ def _strip_signature(text: str) -> str:
     return "\n".join(lines).strip()
 
 
+IMAP_TIMEOUT = 30  # seconds
+
+
 def fetch_inbox(date: datetime | None = None) -> list[RawEmail]:
     email_id = os.environ["AMD_EMAIL_ID"]
     app_password = os.environ["AMD_APP_PASSWORD"]
     target_date = date or datetime.now()
     subject_filter = _subject_for_date(target_date)
 
+    socket.setdefaulttimeout(IMAP_TIMEOUT)
     mail = imaplib.IMAP4_SSL("imap.gmail.com")
-    mail.login(email_id, app_password)
-    mail.select("INBOX")
+    try:
+        mail.login(email_id, app_password)
+        mail.select("INBOX")
 
-    # SINCE narrows the scan to a 2-day window so Gmail doesn't full-scan the inbox.
-    # Format required by IMAP: DD-Mon-YYYY (e.g. 27-Jul-2026).
-    since_date = target_date.strftime("%-d-%b-%Y")
-    _, data = mail.search(None, f'SINCE {since_date} SUBJECT "{subject_filter}"')
-    ids = data[0].split()
+        # SINCE narrows the scan to a 2-day window so Gmail doesn't full-scan the inbox.
+        # Format required by IMAP: DD-Mon-YYYY (e.g. 27-Jul-2026).
+        since_date = target_date.strftime("%-d-%b-%Y")
+        _, data = mail.search(None, f'SINCE {since_date} SUBJECT "{subject_filter}"')
+        ids = data[0].split()
 
-    results: list[RawEmail] = []
-    for uid in ids:
-        _, msg_data = mail.fetch(uid, "(RFC822)")
-        for part in msg_data:
-            if not isinstance(part, tuple):
-                continue
-            msg = email_lib.message_from_bytes(part[1])
-            from_raw = msg.get("From", "")
-            from_addr = _extract_address(from_raw)
-            subject = msg.get("Subject", "")
-            message_id = msg.get("Message-ID", "").strip() or None
-            date_str = msg.get("Date", "")
-            try:
-                received_at = email_lib.utils.parsedate_to_datetime(date_str)
-            except Exception:
-                received_at = datetime.now(tz=timezone.utc)
-            report_date = _report_date_from_subject(subject, received_at)
-            body = _strip_signature(_get_plain_body(msg))
-            results.append(RawEmail(from_addr, subject, message_id, received_at, report_date, body))
+        results: list[RawEmail] = []
+        for uid in ids:
+            _, msg_data = mail.fetch(uid, "(RFC822)")
+            for part in msg_data:
+                if not isinstance(part, tuple):
+                    continue
+                msg = email_lib.message_from_bytes(part[1])
+                from_raw = msg.get("From", "")
+                from_addr = _extract_address(from_raw)
+                subject = msg.get("Subject", "")
+                message_id = msg.get("Message-ID", "").strip() or None
+                date_str = msg.get("Date", "")
+                try:
+                    received_at = email_lib.utils.parsedate_to_datetime(date_str)
+                except Exception:
+                    received_at = datetime.now(tz=timezone.utc)
+                report_date = _report_date_from_subject(subject, received_at)
+                body = _strip_signature(_get_plain_body(msg))
+                results.append(RawEmail(from_addr, subject, message_id, received_at, report_date, body))
+    finally:
+        try:
+            mail.logout()
+        except Exception:
+            pass
 
-    mail.logout()
     return results

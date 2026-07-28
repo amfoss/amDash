@@ -2,14 +2,13 @@
 Ingestion pipeline: fetch emails → store → extract → dedup.
 
 CLI usage:
-  python ingest.py                                # fetch today's emails, full pipeline
-  python ingest.py --date 2025-07-20             # single date
+  python ingest.py                                      # fetch today's emails, full pipeline
+  python ingest.py --date 2025-07-20                   # single date
   python ingest.py --from 2025-07-01 --to 2025-07-20  # date range (inclusive)
-  python ingest.py --dry-run                     # store emails but skip extraction + dedup
 
 Importable:
   from ingest import run
-  run()               # full pipeline for today
+  run()                  # full pipeline for today
   run(date="2025-07-20")
 """
 import argparse
@@ -18,6 +17,7 @@ from datetime import date, datetime, timedelta, timezone
 from db import get_conn, init_db
 from dedup import run_dedup
 from extractor import extract_and_store
+from root_client import sync_members
 
 
 def _store_raw_emails(rows: list[dict], conn) -> list[int]:
@@ -50,12 +50,11 @@ def _store_raw_emails(rows: list[dict], conn) -> list[int]:
     return ids
 
 
-def run(date: str | None = None, dry_run: bool = False, skip_dedup: bool = False) -> dict:
+def run(date: str | None = None, skip_dedup: bool = False) -> dict:
     """
-    Run the full ingestion pipeline.
+    Run the full ingestion pipeline for a single date.
     Returns a summary dict: {emails_stored, contribs_extracted, entities_merged}.
     """
-    init_db()
     conn = get_conn()
 
     target_date: datetime | None = None
@@ -91,10 +90,6 @@ def run(date: str | None = None, dry_run: bool = False, skip_dedup: bool = False
         print("All emails already stored.")
         return {"emails_stored": 0, "contribs_extracted": 0, "entities_merged": 0}
 
-    if dry_run:
-        print("--dry-run: skipping extraction and dedup")
-        return {"emails_stored": len(email_ids), "contribs_extracted": 0, "entities_merged": 0}
-
     conn = get_conn()
     n_contribs = extract_and_store(email_ids, conn)
     print(f"Extracted {n_contribs} contributions")
@@ -112,8 +107,12 @@ def run(date: str | None = None, dry_run: bool = False, skip_dedup: bool = False
     }
 
 
-def backfill(from_date: str, to_date: str, dry_run: bool = False) -> None:
+def backfill(from_date: str, to_date: str) -> None:
     """Run the pipeline for every day in [from_date, to_date] inclusive."""
+    init_db()
+    conn = get_conn()
+    sync_members(conn)
+    conn.close()
     start = date.fromisoformat(from_date)
     end = date.fromisoformat(to_date)
     if start > end:
@@ -126,14 +125,13 @@ def backfill(from_date: str, to_date: str, dry_run: bool = False) -> None:
     while current <= end:
         day_str = current.isoformat()
         print(f"\n── {day_str} ──")
-        summary = run(date=day_str, dry_run=dry_run, skip_dedup=True)
+        summary = run(date=day_str, skip_dedup=True)
         print(f"   emails={summary['emails_stored']} contribs={summary['contribs_extracted']}")
         current += timedelta(days=1)
 
-    if not dry_run:
-        print("\nRunning dedup pass over full entity list after backfill...")
-        n = run_dedup()
-        print(f"Dedup: {n} entities merged")
+    print("\nRunning dedup pass over full entity list after backfill...")
+    n = run_dedup()
+    print(f"Dedup: {n} entities merged")
 
 
 def main() -> None:
@@ -142,15 +140,18 @@ def main() -> None:
     group.add_argument("--date", help="Single YYYY-MM-DD date to fetch (default: today)")
     group.add_argument("--from", dest="from_date", metavar="YYYY-MM-DD", help="Start of date range")
     parser.add_argument("--to", metavar="YYYY-MM-DD", help="End of date range (required with --from)")
-    parser.add_argument("--dry-run", action="store_true", help="Store emails but skip extraction")
     args = parser.parse_args()
 
     if args.from_date:
         if not args.to:
             parser.error("--from requires --to")
-        backfill(args.from_date, args.to, dry_run=args.dry_run)
+        backfill(args.from_date, args.to)
     else:
-        run(date=args.date, dry_run=args.dry_run)
+        init_db()
+        conn = get_conn()
+        sync_members(conn)
+        conn.close()
+        run(date=args.date)
 
 
 if __name__ == "__main__":

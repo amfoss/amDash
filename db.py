@@ -17,9 +17,6 @@ def get_conn() -> sqlite3.Connection:
 
 def init_db() -> None:
     conn = get_conn()
-    # Safe migrations for existing databases
-    _migrate(conn)
-
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS members (
             id             INTEGER PRIMARY KEY,
@@ -99,17 +96,6 @@ def init_db() -> None:
     conn.commit()
     _seed(conn)
     conn.close()
-
-
-def _migrate(conn: sqlite3.Connection) -> None:
-    """Add columns introduced after initial deploy without dropping the DB."""
-    existing = {
-        row[1]
-        for row in conn.execute("PRAGMA table_info(members)").fetchall()
-    }
-    if "root_member_id" not in existing:
-        conn.execute("ALTER TABLE members ADD COLUMN root_member_id INTEGER")
-        conn.commit()
 
 
 def _seed(conn: sqlite3.Connection) -> None:

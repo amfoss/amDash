@@ -10,7 +10,6 @@ Env vars:
   PIPELINE_RUN_TIME   HH:MM in UTC (default: "06:00")
 """
 
-import logging
 import os
 import signal
 import sys
@@ -28,13 +27,6 @@ load_dotenv()
 
 RUN_TIME_UTC = os.environ.get("PIPELINE_RUN_TIME", "06:00")
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%SZ",
-)
-log = logging.getLogger("scheduler")
-
 
 def _today() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -48,8 +40,8 @@ def _already_ran_today(conn) -> bool:
     return row is not None and row["status"] == "ok"
 
 
-def _record_start(conn, run_date: str) -> int:
-    cur = conn.execute(
+def _record_start(conn, run_date: str) -> None:
+    conn.execute(
         """
         INSERT INTO pipeline_runs (run_date, started_at, status)
         VALUES (?, datetime('now'), 'running')
@@ -61,7 +53,6 @@ def _record_start(conn, run_date: str) -> int:
         (run_date,),
     )
     conn.commit()
-    return cur.lastrowid
 
 
 def _record_finish(conn, run_date: str, summary: dict) -> None:
@@ -104,11 +95,11 @@ def run_pipeline() -> None:
     conn = get_conn()
 
     if _already_ran_today(conn):
-        log.info("Pipeline already completed successfully today (%s), skipping.", run_date)
+        print(f"Pipeline already completed successfully today ({run_date}), skipping.")
         conn.close()
         return
 
-    log.info("Starting pipeline for %s", run_date)
+    print(f"Starting pipeline for {run_date}")
     _record_start(conn, run_date)
     conn.close()
 
@@ -121,15 +112,13 @@ def run_pipeline() -> None:
         conn = get_conn()
         _record_finish(conn, run_date, summary)
         conn.close()
-        log.info(
-            "Pipeline done — emails=%d contribs=%d merged=%d",
-            summary["emails_stored"],
-            summary["contribs_extracted"],
-            summary["entities_merged"],
+        print(
+            f"Pipeline done — emails={summary['emails_stored']} "
+            f"contribs={summary['contribs_extracted']} merged={summary['entities_merged']}"
         )
     except Exception:
         err = traceback.format_exc()
-        log.error("Pipeline failed:\n%s", err)
+        print(f"Pipeline failed:\n{err}")
         conn = get_conn()
         _record_error(conn, run_date, err)
         conn.close()
@@ -139,15 +128,14 @@ def main() -> None:
     init_db()
 
     hour, minute = RUN_TIME_UTC.split(":")
-    log.info("Scheduler starting. Daily run at %s UTC.", RUN_TIME_UTC)
+    print(f"Scheduler starting. Daily run at {RUN_TIME_UTC} UTC.")
 
-    # Catch-up: fire immediately if today's run hasn't succeeded yet
     conn = get_conn()
     needs_catchup = not _already_ran_today(conn)
     conn.close()
 
     if needs_catchup:
-        log.info("No successful run for today yet — running pipeline now.")
+        print("No successful run for today yet — running pipeline now.")
         run_pipeline()
 
     scheduler = BlockingScheduler(timezone="UTC")
@@ -156,12 +144,12 @@ def main() -> None:
         trigger="cron",
         hour=int(hour),
         minute=int(minute),
-        coalesce=True,       # collapse multiple missed triggers into one
-        misfire_grace_time=3600,  # fire up to 1h late if the process was down
+        coalesce=True,
+        misfire_grace_time=3600,
     )
 
     def _shutdown(sig, frame):
-        log.info("Shutting down scheduler.")
+        print("Shutting down scheduler.")
         scheduler.shutdown(wait=False)
         sys.exit(0)
 
