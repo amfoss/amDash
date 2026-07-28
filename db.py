@@ -1,10 +1,11 @@
 """SQLite schema creation and seed loading."""
 import json
+import os
 import sqlite3
 from pathlib import Path
 
 
-DB_PATH = Path(__file__).parent / "amroundup.db"
+DB_PATH = Path(os.environ.get("DB_PATH", Path(__file__).parent / "amdash.db"))
 
 
 def get_conn() -> sqlite3.Connection:
