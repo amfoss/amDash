@@ -219,3 +219,11 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 amdash.db*
+
+# local python deps (nix venv was broken; see README)
+.pylibs/
+
+# Next.js front end
+web/node_modules/
+web/.next/
+web/out/

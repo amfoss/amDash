@@ -1,206 +1,383 @@
-"""Minimal Flask dashboard for reviewing extraction quality."""
-import json
-import sqlite3
+"""
+JSON API for the amDash front end.
 
-from flask import Flask, abort, render_template_string
+The dashboard is derived; raw emails are canonical. Every contribution row
+carries its email_id so the UI can trace any mark back to the update that
+produced it.
+
+Run:
+    flask --app app run --port 5000        # dev
+    python app.py                          # dev, with init_db()
+"""
+import json
+import os
+from collections import defaultdict
+from datetime import date, datetime, timedelta
+
+from flask import Flask, abort, jsonify, request
+from flask_cors import CORS
 
 from db import get_conn, init_db
 
 app = Flask(__name__)
 
-# ── tiny inline templates ──────────────────────────────────────────────────────
+# The front end runs on :3000 in dev. Tighten this behind a real deployment.
+CORS(app, origins=os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(","))
 
-HOME_TMPL = """
-<!doctype html><meta charset=utf-8>
-<title>amDash MVP</title>
-<style>
-  body{font-family:system-ui,sans-serif;max-width:900px;margin:40px auto;padding:0 16px}
-  table{width:100%;border-collapse:collapse}
-  th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #e2e8f0}
-  th{background:#f8fafc;font-size:.8rem;text-transform:uppercase;color:#64748b}
-  a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}
-  .badge{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:.75rem;
-         background:#dbeafe;color:#1d4ed8}
-  h2{margin-top:2rem}
-</style>
-<h1>amDash MVP</h1>
-<h2>Members</h2>
-<table>
-<tr><th>Name</th><th>Last update</th><th>Contributions</th></tr>
-{% for m in members %}
-<tr>
-  <td><a href="/member/{{m.id}}">{{m.name}}</a></td>
-  <td>{{m.last_update or '—'}}</td>
-  <td>{{m.contrib_count}}</td>
-</tr>
-{% endfor %}
-</table>
+# Category enum, mirrored from extractor.py. The UI needs the canonical order
+# and it must not drift from what the extractor emits.
+CATEGORIES = [
+    "club-project",
+    "personal-project",
+    "open-source",
+    "non-technical",
+    "academic",
+    "hackathon",
+    "learning",
+    "competitive-programming",
+    "event",
+    "other",
+]
 
-<h2>Recent emails <small style="font-weight:normal;color:#64748b">(raw store)</small></h2>
-<table>
-<tr><th>#</th><th>From</th><th>Date</th><th>Status</th></tr>
-{% for e in emails %}
-<tr>
-  <td><a href="/email/{{e.id}}">{{e.id}}</a></td>
-  <td>{{e.from_addr}}</td>
-  <td>{{e.received_at[:10]}}</td>
-  <td>{{e.parse_status}}</td>
-</tr>
-{% endfor %}
-</table>
-"""
+EVENT_ROLES = ["organize", "prepare-for", "compete-in", "present", "participate"]
 
-MEMBER_TMPL = """
-<!doctype html><meta charset=utf-8>
-<title>{{member.name}} — amDash</title>
-<style>
-  body{font-family:system-ui,sans-serif;max-width:900px;margin:40px auto;padding:0 16px}
-  table{width:100%;border-collapse:collapse}
-  th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #e2e8f0}
-  th{background:#f8fafc;font-size:.8rem;text-transform:uppercase;color:#64748b}
-  a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}
-  .badge{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:.75rem;
-         background:#dbeafe;color:#1d4ed8}
-  pre{background:#f1f5f9;padding:12px;border-radius:6px;white-space:pre-wrap;font-size:.85rem}
-</style>
-<p><a href="/">← Home</a></p>
-<h1>{{member.name}}</h1>
-
-<h2>Contributions</h2>
-{% if not contributions %}
-<p>No contributions extracted yet.</p>
-{% else %}
-<table>
-<tr><th>Date</th><th>Category</th><th>Entity</th><th>Event / Role</th><th>Activity</th><th>Conf.</th><th>Source</th></tr>
-{% for c in contributions %}
-<tr>
-  <td>{{c.date}}</td>
-  <td><span class="badge">{{c.category}}</span></td>
-  <td>{{c.entity_name or '—'}}</td>
-  <td>{% if c.event_name %}{{c.event_name}} / {{c.event_role}}{% else %}—{% endif %}</td>
-  <td>{{c.activity_text}}</td>
-  <td>{{'{:.0%}'.format(c.confidence)}}</td>
-  <td><a href="/email/{{c.email_id}}">email #{{c.email_id}}</a></td>
-</tr>
-{% endfor %}
-</table>
-{% endif %}
-"""
-
-EMAIL_TMPL = """
-<!doctype html><meta charset=utf-8>
-<title>Email #{{email.id}} — amDash</title>
-<style>
-  body{font-family:system-ui,sans-serif;max-width:900px;margin:40px auto;padding:0 16px}
-  pre{background:#f1f5f9;padding:16px;border-radius:6px;white-space:pre-wrap;font-size:.85rem}
-  table{width:100%;border-collapse:collapse}
-  th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #e2e8f0}
-  th{background:#f8fafc;font-size:.8rem;text-transform:uppercase;color:#64748b}
-  a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}
-  .badge{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:.75rem;
-         background:#dbeafe;color:#1d4ed8}
-</style>
-<p><a href="/">← Home</a></p>
-<h1>Email #{{email.id}}</h1>
-<table>
-<tr><th>From</th><td>{{email.from_addr}}</td></tr>
-<tr><th>Report date</th><td>{{email.report_date}}</td></tr>
-<tr><th>Received</th><td>{{email.received_at}}</td></tr>
-<tr><th>Subject</th><td>{{email.subject}}</td></tr>
-<tr><th>Status</th><td>{{email.parse_status}}</td></tr>
-</table>
-
-<h2>Raw body</h2>
-<pre>{{email.raw_body}}</pre>
-
-<h2>Extracted contributions</h2>
-{% if not contributions %}
-<p>None yet.</p>
-{% else %}
-<table>
-<tr><th>Category</th><th>Entity</th><th>Event / Role</th><th>Activity</th><th>Conf.</th></tr>
-{% for c in contributions %}
-<tr>
-  <td><span class="badge">{{c.category}}</span></td>
-  <td>{{c.entity_name or '—'}}</td>
-  <td>{% if c.event_name %}{{c.event_name}} / {{c.event_role}}{% else %}—{% endif %}</td>
-  <td>{{c.activity_text}}</td>
-  <td>{{'{:.0%}'.format(c.confidence)}}</td>
-</tr>
-{% endfor %}
-</table>
-{% endif %}
-"""
+DEFAULT_WINDOW_DAYS = 14
 
 
-# ── routes ─────────────────────────────────────────────────────────────────────
+def _rows(cur) -> list[dict]:
+    return [dict(r) for r in cur.fetchall()]
 
-@app.route("/")
-def home():
+
+def _window() -> tuple[str, str]:
+    """Resolve the ?from=&to= window, defaulting to the last N days of data.
+
+    The window is clamped to the data that exists rather than to today, because
+    the pipeline may not have run recently and an empty field would be a lie
+    about the archive rather than about the club.
+    """
     conn = get_conn()
-    members = conn.execute(
-        """
-        SELECT m.id, m.name,
-               MAX(c.date) AS last_update,
-               COUNT(c.id) AS contrib_count
-        FROM members m
-        LEFT JOIN contributions c ON c.member_id = m.id
-        GROUP BY m.id
-        ORDER BY last_update DESC NULLS LAST
-        """
-    ).fetchall()
-
-    emails = conn.execute(
-        "SELECT id, from_addr, received_at, parse_status FROM emails ORDER BY received_at DESC LIMIT 50"
-    ).fetchall()
+    row = conn.execute("SELECT MIN(date) lo, MAX(date) hi FROM contributions").fetchone()
     conn.close()
-    return render_template_string(HOME_TMPL, members=members, emails=emails)
+
+    data_lo, data_hi = row["lo"], row["hi"]
+    if not data_hi:
+        today = date.today().isoformat()
+        return request.args.get("from", today), request.args.get("to", today)
+
+    to = request.args.get("to") or data_hi
+    if request.args.get("from"):
+        frm = request.args["from"]
+    else:
+        anchor = datetime.strptime(to, "%Y-%m-%d").date()
+        frm = max(
+            (anchor - timedelta(days=DEFAULT_WINDOW_DAYS - 1)).isoformat(),
+            data_lo,
+        )
+    return frm, to
 
 
-@app.route("/member/<int:mid>")
-def member(mid):
+@app.get("/api/meta")
+def meta():
+    """Everything the field needs to draw its armature and legend, once."""
     conn = get_conn()
-    m = conn.execute("SELECT id, name FROM members WHERE id = ?", (mid,)).fetchone()
-    if not m:
+
+    span = conn.execute(
+        "SELECT MIN(date) lo, MAX(date) hi FROM contributions"
+    ).fetchone()
+    email_span = conn.execute(
+        "SELECT MIN(report_date) lo, MAX(report_date) hi FROM emails"
+    ).fetchone()
+
+    runs = _rows(
+        conn.execute(
+            """
+            SELECT run_date, status, error_message,
+                   emails_stored, contribs_extracted, entities_merged
+            FROM pipeline_runs
+            ORDER BY run_date DESC
+            LIMIT 120
+            """
+        )
+    )
+
+    counts = conn.execute(
+        """
+        SELECT
+          (SELECT COUNT(*) FROM members WHERE active = 1)      AS active_members,
+          (SELECT COUNT(*) FROM emails)                        AS emails,
+          (SELECT COUNT(*) FROM contributions)                 AS contributions,
+          (SELECT COUNT(*) FROM entities WHERE status='active') AS entities
+        """
+    ).fetchone()
+
+    parse_status = {
+        r["parse_status"]: r["n"]
+        for r in conn.execute(
+            "SELECT parse_status, COUNT(*) n FROM emails GROUP BY parse_status"
+        )
+    }
+    conn.close()
+
+    return jsonify(
+        {
+            "categories": CATEGORIES,
+            "event_roles": EVENT_ROLES,
+            "contribution_span": {"from": span["lo"], "to": span["hi"]},
+            "email_span": {"from": email_span["lo"], "to": email_span["hi"]},
+            "default_window_days": DEFAULT_WINDOW_DAYS,
+            "pipeline_runs": runs,
+            "parse_status": parse_status,
+            "counts": dict(counts),
+        }
+    )
+
+
+@app.get("/api/field")
+def field():
+    """
+    The whole drawing for one window, in one request.
+
+    Returns the dots (entities and events with activity) and the threads
+    (one per member, ordered by date) plus the roster with cadence. The field
+    is small enough to send whole; 35 members over a term is kilobytes.
+    """
+    frm, to = _window()
+    conn = get_conn()
+
+    contribs = _rows(
+        conn.execute(
+            """
+            SELECT c.id, c.member_id, c.email_id, c.date, c.category,
+                   c.entity_id, c.event_id, c.event_role, c.activity_text,
+                   c.collaborator_ids, c.blockers, c.confidence,
+                   en.slug AS entity_slug, en.display_name AS entity_name,
+                   ev.slug AS event_slug, ev.name AS event_name
+            FROM contributions c
+            LEFT JOIN entities en ON en.id = c.entity_id
+            LEFT JOIN events   ev ON ev.id = c.event_id
+            WHERE c.date BETWEEN ? AND ?
+            ORDER BY c.date, c.id
+            """,
+            (frm, to),
+        )
+    )
+    for c in contribs:
+        c["collaborator_ids"] = json.loads(c["collaborator_ids"] or "[]")
+
+    # ── dots ──────────────────────────────────────────────────────────────────
+    # An entity is a dot. An event with no entity is also a dot, because event
+    # work is real work and dropping it would lose 20 of 66 rows.
+    dots: dict[str, dict] = {}
+    for c in contribs:
+        if c["entity_id"]:
+            key = f"entity:{c['entity_id']}"
+            label, kind = c["entity_slug"], "entity"
+            ref = c["entity_id"]
+        elif c["event_id"]:
+            key = f"event:{c['event_id']}"
+            label, kind = c["event_slug"], "event"
+            ref = c["event_id"]
+        else:
+            key, label, kind, ref = "unattached", "unattached", "unattached", None
+
+        d = dots.setdefault(
+            key,
+            {
+                "key": key,
+                "kind": kind,
+                "ref_id": ref,
+                "label": label,
+                "category": c["category"],
+                "count": 0,
+                "member_ids": [],
+                "event_slug": c["event_slug"],
+            },
+        )
+        d["count"] += 1
+        if c["member_id"] not in d["member_ids"]:
+            d["member_ids"].append(c["member_id"])
+
+    # ── threads ───────────────────────────────────────────────────────────────
+    threads: dict[int, list[dict]] = defaultdict(list)
+    for c in contribs:
+        if c["entity_id"]:
+            key = f"entity:{c['entity_id']}"
+        elif c["event_id"]:
+            key = f"event:{c['event_id']}"
+        else:
+            key = "unattached"
+        threads[c["member_id"]].append(
+            {
+                "contribution_id": c["id"],
+                "dot": key,
+                "date": c["date"],
+                "category": c["category"],
+                "email_id": c["email_id"],
+            }
+        )
+
+    # ── roster + cadence ──────────────────────────────────────────────────────
+    # Cadence is reporting discipline, derived purely from emails, and is
+    # deliberately NOT a measure of work. See PRODUCT.md.
+    members = _rows(
+        conn.execute(
+            """
+            SELECT m.id, m.name, m.github_handle, m.active,
+                   GROUP_CONCAT(me.email) AS emails
+            FROM members m
+            LEFT JOIN member_emails me ON me.member_id = m.id
+            WHERE m.active = 1
+            GROUP BY m.id
+            ORDER BY m.name COLLATE NOCASE
+            """
+        )
+    )
+
+    reported = defaultdict(set)
+    for r in conn.execute(
+        """
+        SELECT me.member_id, e.report_date
+        FROM emails e
+        JOIN member_emails me ON me.email = LOWER(e.from_addr)
+        WHERE e.report_date BETWEEN ? AND ?
+        """,
+        (frm, to),
+    ):
+        reported[r["member_id"]].add(r["report_date"])
+
+    last_report = {
+        r["member_id"]: r["last"]
+        for r in conn.execute(
+            """
+            SELECT me.member_id, MAX(e.report_date) AS last
+            FROM emails e
+            JOIN member_emails me ON me.email = LOWER(e.from_addr)
+            GROUP BY me.member_id
+            """
+        )
+    }
+
+    days = []
+    d0 = datetime.strptime(frm, "%Y-%m-%d").date()
+    d1 = datetime.strptime(to, "%Y-%m-%d").date()
+    while d0 <= d1:
+        days.append(d0.isoformat())
+        d0 += timedelta(days=1)
+
+    for m in members:
+        m["emails"] = (m["emails"] or "").split(",") if m["emails"] else []
+        m["reported_days"] = sorted(reported.get(m["id"], []))
+        m["cadence"] = [d in reported.get(m["id"], set()) for d in days]
+        m["last_report"] = last_report.get(m["id"])
+        m["contribution_count"] = len(threads.get(m["id"], []))
+
+    # Emails that failed extraction draw as smudge marks.
+    smudges = _rows(
+        conn.execute(
+            """
+            SELECT e.id, e.from_addr, e.report_date, e.subject
+            FROM emails e
+            WHERE e.parse_status = 'error' AND e.report_date BETWEEN ? AND ?
+            """,
+            (frm, to),
+        )
+    )
+    conn.close()
+
+    return jsonify(
+        {
+            "window": {"from": frm, "to": to, "days": days},
+            "dots": sorted(dots.values(), key=lambda d: (-d["count"], d["label"])),
+            "threads": {str(k): v for k, v in threads.items()},
+            "members": members,
+            "contributions": contribs,
+            "smudges": smudges,
+        }
+    )
+
+
+@app.get("/api/dot/<kind>/<int:ref_id>")
+def dot_history(kind: str, ref_id: int):
+    """The fan: one dot's full contribution history, newest first."""
+    if kind not in ("entity", "event"):
         abort(404)
 
-    contributions = conn.execute(
-        """
-        SELECT c.*, e.display_name AS entity_name, ev.name AS event_name
-        FROM contributions c
-        LEFT JOIN entities e ON e.id = c.entity_id
-        LEFT JOIN events ev  ON ev.id = c.event_id
-        WHERE c.member_id = ?
-        ORDER BY c.date DESC
-        """,
-        (mid,),
-    ).fetchall()
+    conn = get_conn()
+    col = "entity_id" if kind == "entity" else "event_id"
+    rows = _rows(
+        conn.execute(
+            f"""
+            SELECT c.id, c.date, c.activity_text, c.confidence, c.category,
+                   c.event_role, c.blockers, c.email_id,
+                   m.id AS member_id, m.name AS member_name
+            FROM contributions c
+            JOIN members m ON m.id = c.member_id
+            WHERE c.{col} = ?
+            ORDER BY c.date DESC, c.id DESC
+            """,
+            (ref_id,),
+        )
+    )
+
+    if kind == "entity":
+        subject = conn.execute(
+            "SELECT id, slug, display_name, category, origin, status, first_seen_at"
+            " FROM entities WHERE id = ?",
+            (ref_id,),
+        ).fetchone()
+    else:
+        subject = conn.execute(
+            "SELECT id, slug, name AS display_name, description FROM events WHERE id = ?",
+            (ref_id,),
+        ).fetchone()
     conn.close()
-    return render_template_string(MEMBER_TMPL, member=m, contributions=contributions)
+
+    if not subject:
+        abort(404)
+    return jsonify({"kind": kind, "subject": dict(subject), "history": rows})
 
 
-@app.route("/email/<int:eid>")
-def email_detail(eid):
+@app.get("/api/email/<int:eid>")
+def email_detail(eid: int):
+    """Provenance terminus: the raw, immutable update."""
     conn = get_conn()
     e = conn.execute("SELECT * FROM emails WHERE id = ?", (eid,)).fetchone()
     if not e:
+        conn.close()
         abort(404)
 
-    contributions = conn.execute(
-        """
-        SELECT c.*, en.display_name AS entity_name, ev.name AS event_name
-        FROM contributions c
-        LEFT JOIN entities en ON en.id = c.entity_id
-        LEFT JOIN events ev   ON ev.id = c.event_id
-        WHERE c.email_id = ?
-        ORDER BY c.id
-        """,
-        (eid,),
-    ).fetchall()
+    contribs = _rows(
+        conn.execute(
+            """
+            SELECT c.id, c.date, c.category, c.activity_text, c.confidence,
+                   c.event_role, c.blockers,
+                   en.slug AS entity_slug, ev.slug AS event_slug,
+                   m.name AS member_name
+            FROM contributions c
+            JOIN members m ON m.id = c.member_id
+            LEFT JOIN entities en ON en.id = c.entity_id
+            LEFT JOIN events   ev ON ev.id = c.event_id
+            WHERE c.email_id = ?
+            ORDER BY c.id
+            """,
+            (eid,),
+        )
+    )
     conn.close()
-    return render_template_string(EMAIL_TMPL, email=e, contributions=contributions)
+    return jsonify({"email": dict(e), "contributions": contribs})
+
+
+@app.get("/api/health")
+def health():
+    try:
+        conn = get_conn()
+        conn.execute("SELECT 1").fetchone()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as exc:  # pragma: no cover
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=int(os.environ.get("PORT", 5000)))
