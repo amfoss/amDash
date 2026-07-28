@@ -1,0 +1,28 @@
+[
+  {
+    "slug": "hacktoberfest",
+    "name": "Hacktoberfest",
+    "description": "Annual open-source contribution month, organized at the college"
+  },
+  {
+    "slug": "praveshan",
+    "name": "Praveshan",
+    "description": "Club recruitment drive"
+  },
+  { "slug": "gsoc", "name": "GSoC", "description": "Google Summer of Code" },
+  {
+    "slug": "fosstalk",
+    "name": "fosstalk",
+    "description": "Member gives a public technical talk"
+  },
+  {
+    "slug": "fossplay",
+    "name": "fossplay",
+    "description": "Members go out and play / team outing"
+  },
+  {
+    "slug": "workshop",
+    "name": "Workshop",
+    "description": "Technical workshop organized or attended by members"
+  }
+]

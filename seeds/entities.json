@@ -1,0 +1,23 @@
+[
+  {
+    "category": "club-project",
+    "display_name": "ammingo",
+    "slug": "ammingo"
+  },
+  {
+    "category": "club-project",
+    "display_name": "ICPC project",
+    "slug": "icpc-project"
+  },
+  {
+    "category": "club-project",
+    "display_name": "amFOSS Website",
+    "slug": "amfoss-website"
+  },
+  {
+    "category": "club-project",
+    "display_name": "amFOSS Daemon",
+    "slug": "amfoss-daemon"
+  },
+  { "category": "club-project", "display_name": "amDash", "slug": "amdash" }
+]

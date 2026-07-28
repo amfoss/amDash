@@ -1,0 +1,13 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "$PWD/.claude/statusline.sh",
+    "padding": 0
+  },
+  "showThinkingSummaries": true,
+  "permissions": {
+    "allow": [
+      "Read(//tmp/root/**)"
+    ]
+  }
+}
