@@ -152,7 +152,10 @@ def run_dedup() -> int:
     slug_to_row = {e["slug"]: e for e in entities}
     print(f"Running dedup over {len(entities)} active entities...")
 
-    client = anthropic.Anthropic()
+    extra = {}
+    if secret := os.environ.get("PROXY_SECRET"):
+        extra["default_headers"] = {"x-proxy-secret": secret}
+    client = anthropic.Anthropic(**extra)
     response = client.messages.create(
         model=MODEL,
         max_tokens=2048,

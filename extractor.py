@@ -258,7 +258,10 @@ def extract_and_store(email_ids: list[int], conn: sqlite3.Connection) -> int:
         )
     user_message = "\n\n".join(email_blocks)
 
-    client = anthropic.Anthropic()
+    extra = {}
+    if secret := os.environ.get("PROXY_SECRET"):
+        extra["default_headers"] = {"x-proxy-secret": secret}
+    client = anthropic.Anthropic(**extra)
     response = client.messages.create(
         model=MODEL,
         max_tokens=8192,
