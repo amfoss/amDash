@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { type Category, type Status } from "../../data/members";
 
@@ -26,6 +26,29 @@ interface Contribution {
   event_name: string | null;
 }
 
+interface EmailContribution {
+  id: number;
+  date: string;
+  category: string;
+  activity_text: string;
+  event_role: string | null;
+  confidence: number;
+  entity_name: string | null;
+  event_name: string | null;
+}
+
+interface EmailDetail {
+  id: number;
+  message_id: string | null;
+  from_addr: string;
+  report_date: string;
+  received_at: string;
+  subject: string | null;
+  raw_body: string;
+  parse_status: string;
+  contributions: EmailContribution[];
+}
+
 interface MemberDetail {
   id: number;
   name: string;
@@ -38,6 +61,278 @@ interface MemberDetail {
   contribCount: number;
   entitySummaries: EntitySummary[];
   contributions: Contribution[];
+}
+
+// ── email modal ────────────────────────────────────────────────────────────────
+
+const PARSE_STATUS_COLOR: Record<string, string> = {
+  done:    "#4ADE80",
+  error:   "#F87171",
+  pending: "#FBBF24",
+};
+
+function EmailModal({
+  emailId,
+  onClose,
+}: {
+  emailId: number;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<EmailDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    setData(null);
+    setLoading(true);
+    setErr(null);
+    fetch(`/api/emails/${emailId}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((d: EmailDetail) => { setData(d); setLoading(false); })
+      .catch((e: Error) => { setErr(e.message); setLoading(false); });
+  }, [emailId]);
+
+  // close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const statusColor = data ? (PARSE_STATUS_COLOR[data.parse_status] ?? "#6B7A99") : "#6B7A99";
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "6px",
+          width: "100%",
+          maxWidth: "760px",
+          maxHeight: "calc(100vh - 48px)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+        }}
+      >
+        {/* ── modal header ── */}
+        <div
+          style={{
+            padding: "14px 20px",
+            borderBottom: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "16px",
+            flexShrink: 0,
+          }}
+        >
+          <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span
+                className="text-[11px] tracking-[0.1em] uppercase font-bold"
+                style={{ color: "var(--accent)" }}
+              >
+                [ EMAIL #{emailId} ]
+              </span>
+              {data && (
+                <span
+                  className="text-[10px] tracking-[0.06em] uppercase px-1.5 py-px rounded-sm"
+                  style={{
+                    color: statusColor,
+                    border: `1px solid ${statusColor}33`,
+                    background: `${statusColor}0D`,
+                  }}
+                >
+                  {data.parse_status}
+                </span>
+              )}
+            </div>
+            {data && (
+              <>
+                <span
+                  className="text-[13px] font-medium truncate"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {data.from_addr}
+                </span>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {data.subject && (
+                    <span
+                      className="text-[12px] truncate"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      {data.subject}
+                    </span>
+                  )}
+                  <span
+                    className="text-[11px] tabular-nums shrink-0"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {data.received_at.slice(0, 16).replace("T", " · ")}
+                  </span>
+                </div>
+              </>
+            )}
+            {loading && (
+              <div className="flex flex-col gap-1.5 mt-1">
+                <Skeleton w="180px" h="13px" />
+                <Skeleton w="240px" h="11px" />
+              </div>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="text-[12px] shrink-0 transition-colors duration-75"
+            style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: "2px 0" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+            aria-label="Close email viewer"
+          >
+            [×]
+          </button>
+        </div>
+
+        {/* ── body ── */}
+        <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          {err ? (
+            <div className="p-5 text-[12px]" style={{ color: "#F87171" }}>
+              [ FAIL ] Could not load email #{emailId}: {err}
+            </div>
+          ) : loading ? (
+            <div className="p-5 flex flex-col gap-2">
+              {Array.from({ length: 8 }, (_, i) => (
+                <Skeleton key={i} w={`${55 + (i % 5) * 8}%`} h="11px" />
+              ))}
+            </div>
+          ) : data ? (
+            <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+              {/* raw body */}
+              <div
+                style={{
+                  flex: 1,
+                  overflowY: "auto",
+                  padding: "16px 20px",
+                  borderBottom: data.contributions.length > 0 ? "1px solid var(--border)" : "none",
+                }}
+              >
+                {data.raw_body.trim() ? (
+                  <pre
+                    style={{
+                      fontFamily: "inherit",
+                      fontSize: "11px",
+                      lineHeight: "1.7",
+                      color: "var(--text-secondary)",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      margin: 0,
+                    }}
+                  >
+                    {data.raw_body}
+                  </pre>
+                ) : (
+                  <span className="text-[12px]" style={{ color: "#FBBF24" }}>
+                    [ WARN ] No body stored for this email.
+                  </span>
+                )}
+              </div>
+
+              {/* extracted contributions */}
+              {data.contributions.length > 0 && (
+                <div style={{ flexShrink: 0, maxHeight: "240px", overflowY: "auto" }}>
+                  <div
+                    style={{
+                      padding: "8px 20px",
+                      borderBottom: "1px solid var(--border-subtle)",
+                      position: "sticky",
+                      top: 0,
+                      background: "var(--surface)",
+                    }}
+                  >
+                    <span
+                      className="text-[10px] tracking-[0.12em] uppercase"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {data.contributions.length} contribution{data.contributions.length !== 1 ? "s" : ""} extracted
+                    </span>
+                  </div>
+                  {data.contributions.map((c, i) => (
+                    <div
+                      key={c.id}
+                      style={{
+                        padding: "9px 20px",
+                        borderBottom: i < data.contributions.length - 1 ? "1px solid var(--border-subtle)" : "none",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "12px",
+                      }}
+                    >
+                      <span
+                        className="text-[11px] tabular-nums shrink-0"
+                        style={{ color: "var(--text-muted)", width: "76px", marginTop: "1px" }}
+                      >
+                        {c.date.slice(0, 10)}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <CategoryChip category={c.category as Category} />
+                          {c.entity_name && (
+                            <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                              {c.entity_name}
+                            </span>
+                          )}
+                          {c.event_name && (
+                            <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                              · {c.event_name}
+                              {c.event_role ? ` (${c.event_role})` : ""}
+                            </span>
+                          )}
+                        </div>
+                        <p
+                          className="text-[11px] leading-relaxed"
+                          style={{ color: "var(--text-secondary)", margin: 0 }}
+                        >
+                          {c.activity_text}
+                        </p>
+                      </div>
+                      <span
+                        className="text-[10px] tabular-nums shrink-0"
+                        style={{
+                          color: c.confidence >= 0.8 ? "#4ADE80" : c.confidence >= 0.5 ? "#FBBF24" : "#F87171",
+                          marginTop: "2px",
+                        }}
+                        title={`confidence: ${Math.round(c.confidence * 100)}%`}
+                      >
+                        {Math.round(c.confidence * 100)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── category config ────────────────────────────────────────────────────────────
@@ -384,8 +679,12 @@ const PAGE_SIZE = 20;
 
 function ContributionLog({ contributions }: { contributions: Contribution[] }) {
   const [page, setPage] = useState(1);
+  const [activeEmailId, setActiveEmailId] = useState<number | null>(null);
   const visible = contributions.slice(0, page * PAGE_SIZE);
   const hasMore = contributions.length > visible.length;
+
+  const openEmail = useCallback((id: number) => setActiveEmailId(id), []);
+  const closeEmail = useCallback(() => setActiveEmailId(null), []);
 
   return (
     <section>
@@ -402,6 +701,7 @@ function ContributionLog({ contributions }: { contributions: Contribution[] }) {
             key={c.id}
             contrib={c}
             last={i === visible.length - 1 && !hasMore}
+            onOpenEmail={openEmail}
           />
         ))}
       </div>
@@ -427,6 +727,9 @@ function ContributionLog({ contributions }: { contributions: Contribution[] }) {
           [ load more · {contributions.length - visible.length} remaining ]
         </button>
       )}
+      {activeEmailId !== null && (
+        <EmailModal emailId={activeEmailId} onClose={closeEmail} />
+      )}
     </section>
   );
 }
@@ -434,14 +737,17 @@ function ContributionLog({ contributions }: { contributions: Contribution[] }) {
 function ContribRow({
   contrib,
   last,
+  onOpenEmail,
 }: {
   contrib: Contribution;
   last: boolean;
+  onOpenEmail: (id: number) => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <div
+      onClick={() => onOpenEmail(contrib.email_id)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -449,6 +755,7 @@ function ContribRow({
         background: hovered ? "#0F1420" : "transparent",
         transition: "background 75ms",
         padding: "10px 16px",
+        cursor: "pointer",
       }}
     >
       <div className="flex items-start gap-3">
@@ -486,29 +793,20 @@ function ContribRow({
             {contrib.activity_text}
           </p>
         </div>
-        <a
-          href={`/api/emails/${contrib.email_id}`}
-          target="_blank"
-          rel="noopener noreferrer"
+        <span
           style={{
-            color: hovered ? "var(--accent)" : "var(--text-muted)",
+            color: "var(--accent)",
             fontSize: "11px",
-            transition: "color 75ms",
-            textDecoration: "none",
             flexShrink: 0,
             marginTop: "2px",
+            opacity: hovered ? 1 : 0,
+            transition: "opacity 75ms",
+            userSelect: "none",
           }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.color = "var(--accent)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.color = hovered
-              ? "var(--accent)"
-              : "var(--text-muted)")
-          }
+          aria-hidden="true"
         >
-          [source →]
-        </a>
+          →
+        </span>
       </div>
     </div>
   );
