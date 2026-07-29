@@ -1,6 +1,41 @@
 [
   {
     "category": "club-project",
+    "display_name": "AmMentor",
+    "slug": "am-mentor"
+  },
+  {
+    "category": "club-project",
+    "display_name": "AmMentor",
+    "slug": "am-mentor"
+  },
+  {
+    "category": "club-project",
+    "display_name": "amfoss website",
+    "slug": "amfoss-website"
+  },
+  {
+    "category": "club-project",
+    "display_name": "root",
+    "slug": "root"
+  },
+  {
+    "category": "club-project",
+    "display_name": "amd",
+    "slug": "amd"
+  },
+  {
+    "category": "club-project",
+    "display_name": "retentia",
+    "slug": "retentia"
+  },
+  {
+    "category": "club-project",
+    "display_name": "kalasetu",
+    "slug": "kalasetu"
+  },
+  {
+    "category": "club-project",
     "display_name": "ammingo",
     "slug": "ammingo"
   },

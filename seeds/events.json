@@ -1,8 +1,18 @@
 [
   {
+    "slug": "indiafoss",
+    "name": "IndiaFOSS",
+    "description": "Largest open source conference in India"
+  },
+  {
+    "slug": "fosster",
+    "name": "Fosster",
+    "description": "Flagship event of amFOSS, an open source conference"
+  },
+  {
     "slug": "hacktoberfest",
     "name": "Hacktoberfest",
-    "description": "Annual open-source contribution month, organized at the college"
+    "description": "Annual open-source contribution event, organized at the college"
   },
   {
     "slug": "praveshan",
@@ -23,6 +33,6 @@
   {
     "slug": "workshop",
     "name": "Workshop",
-    "description": "Technical workshop organized or attended by members"
+    "description": "Technical workshop organized by members"
   }
 ]
