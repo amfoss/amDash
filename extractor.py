@@ -261,6 +261,9 @@ def extract_and_store(email_ids: list[int], conn: sqlite3.Connection) -> int:
     extra = {}
     if secret := os.environ.get("PROXY_SECRET"):
         extra["default_headers"] = {"x-proxy-secret": secret}
+    if proxy_url := os.environ.get("ANTHROPIC_PROXY_URL"):
+        extra["base_url"] = proxy_url
+        extra.setdefault("api_key", "proxy")  # proxy handles auth; SDK requires a non-empty value
     client = anthropic.Anthropic(**extra)
     response = client.messages.create(
         model=MODEL,
