@@ -223,6 +223,7 @@ def _get_or_create_entity(
         (category, display_name, slug, "auto"),
     )
     conn.commit()
+    print(f"  NEW entity: [{category}] '{display_name}' (slug='{slug}')")
     return cur.lastrowid
 
 
