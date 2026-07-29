@@ -18,13 +18,13 @@ const CATEGORY_CONFIG: Record<Category, { label: string; bg: string; text: strin
   "other":                   { label: "other",                   bg: "#1E1E1E", text: "#6B7280" },
 };
 
-const STATUS_CONFIG: Record<Status, { color: string; glow: string }> = {
-  ACTIVE:   { color: "#4ADE80", glow: "rgba(74,222,128,0.12)"  },
-  SILENT:   { color: "#F87171", glow: "rgba(248,113,113,0.12)" },
-  INACTIVE: { color: "#3A4560", glow: "transparent"            },
+const STATUS_CONFIG: Record<Status, { color: string }> = {
+  ACTIVE:   { color: "#4ADE80" },
+  SILENT:   { color: "#F87171" },
+  INACTIVE: { color: "#6B7A99" },
 };
 
-const ALL_STATUSES: Status[] = ["ACTIVE", "SILENT"];
+const ALL_STATUSES: Status[] = ["ACTIVE", "SILENT", "INACTIVE"];
 const ALL_CATEGORIES: Category[] = [
   "club-project", "open-source", "learning", "competitive-programming",
   "academic", "hackathon", "event", "non-technical", "other",
@@ -57,18 +57,16 @@ function StatusToken({ status }: { status: Status }) {
     <span
       style={{
         color: cfg.color,
-        background: cfg.glow,
-        border: `1px solid ${cfg.color}33`,
+        border: `1px solid ${cfg.color}44`,
       }}
       className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[11px] font-bold tracking-[0.06em] uppercase"
     >
       <span
         style={{
           background: cfg.color,
-          boxShadow: `0 0 5px ${cfg.color}, 0 0 2px ${cfg.color}`,
-          width: "6px",
-          height: "6px",
-          borderRadius: "50%",
+          width: "5px",
+          height: "5px",
+          borderRadius: "1px",
           flexShrink: 0,
           display: "inline-block",
         }}
@@ -280,10 +278,10 @@ function SummaryStrip({ members }: { members: Member[] }) {
         <span
           style={{
             background: "#4ADE80",
-            boxShadow: "0 0 4px #4ADE80",
-            width: "6px",
-            height: "6px",
-            borderRadius: "50%",
+            boxShadow: "0 0 5px #4ADE80",
+            width: "5px",
+            height: "5px",
+            borderRadius: "1px",
             display: "inline-block",
           }}
         />
@@ -294,9 +292,10 @@ function SummaryStrip({ members }: { members: Member[] }) {
         <span
           style={{
             background: "#F87171",
-            width: "6px",
-            height: "6px",
-            borderRadius: "50%",
+            boxShadow: "0 0 5px #F87171",
+            width: "5px",
+            height: "5px",
+            borderRadius: "1px",
             display: "inline-block",
           }}
         />

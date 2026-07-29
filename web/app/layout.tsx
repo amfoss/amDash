@@ -16,10 +16,10 @@
 */
 
 import type { Metadata } from "next";
-import { JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
-const jetbrainsMono = JetBrains_Mono({
+const ibmPlexMono = IBM_Plex_Mono({
   variable: "--font-commit-mono",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
@@ -36,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${jetbrainsMono.variable} h-full`}>
+    <html lang="en" className={`${ibmPlexMono.variable} h-full`}>
       <body className="min-h-full flex flex-col font-mono antialiased">
         {children}
       </body>

@@ -66,10 +66,10 @@ const CATEGORY_ORDER: Category[] = [
   "other",
 ];
 
-const STATUS_CONFIG: Record<Status, { color: string; glow: string }> = {
-  ACTIVE:   { color: "#4ADE80", glow: "rgba(74,222,128,0.12)"  },
-  SILENT:   { color: "#F87171", glow: "rgba(248,113,113,0.12)" },
-  INACTIVE: { color: "#3A4560", glow: "transparent"            },
+const STATUS_CONFIG: Record<Status, { color: string }> = {
+  ACTIVE:   { color: "#4ADE80" },
+  SILENT:   { color: "#F87171" },
+  INACTIVE: { color: "#6B7A99" },
 };
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -104,18 +104,16 @@ function StatusToken({ status }: { status: Status }) {
     <span
       style={{
         color: cfg.color,
-        background: cfg.glow,
-        border: `1px solid ${cfg.color}33`,
+        border: `1px solid ${cfg.color}44`,
       }}
       className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[11px] font-bold tracking-[0.06em] uppercase"
     >
       <span
         style={{
           background: cfg.color,
-          boxShadow: `0 0 5px ${cfg.color}, 0 0 2px ${cfg.color}`,
-          width: "6px",
-          height: "6px",
-          borderRadius: "50%",
+          width: "5px",
+          height: "5px",
+          borderRadius: "1px",
           flexShrink: 0,
           display: "inline-block",
         }}
