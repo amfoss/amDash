@@ -14,7 +14,7 @@ import os
 import signal
 import sys
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from dotenv import load_dotenv
@@ -29,7 +29,7 @@ RUN_TIME_UTC = os.environ.get("PIPELINE_RUN_TIME", "09:00")
 
 
 def _today() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
 
 
 def _already_ran_today(conn) -> bool:
