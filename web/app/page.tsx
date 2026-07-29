@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { type Member, type Category, type Status } from "./data/members";
 
 // ── category display config ────────────────────────────────────────────────────
@@ -159,9 +160,12 @@ function FilterChip({
 
 function MemberRow({ member, index }: { member: Member; index: number }) {
   const [hovered, setHovered] = useState(false);
+  const router = useRouter();
+  const navigate = useCallback(() => router.push(`/member/${member.id}`), [router, member.id]);
 
   return (
     <tr
+      onClick={navigate}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -173,16 +177,12 @@ function MemberRow({ member, index }: { member: Member; index: number }) {
     >
       {/* name */}
       <td className="py-3 pl-5 pr-6" style={{ minWidth: "160px" }}>
-        <a
-          href={`/member/${member.id}`}
-          className="text-[14px] font-medium hover:underline underline-offset-4"
-          style={{
-            color: "var(--text-primary)",
-            textDecorationColor: "var(--text-muted)",
-          }}
+        <span
+          className="text-[14px] font-medium"
+          style={{ color: "var(--text-primary)" }}
         >
           {member.name}
-        </a>
+        </span>
         {member.githubHandle && (
           <span className="block text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
             @{member.githubHandle}
