@@ -27,6 +27,7 @@ query {
     name
     email
     githubUser
+    year
   }
 }
 """
@@ -71,6 +72,11 @@ def sync_members(conn: sqlite3.Connection) -> dict:
         if root_id < 0:
             continue
 
+        year = m.get("year")
+        if year is None:
+            print(f"  skipping member id={root_id} (null year)")
+            continue
+
         name = m["name"]
         github = m.get("githubUser") or None
         root_email = (m.get("email") or "").strip().lower() or None
@@ -86,10 +92,10 @@ def sync_members(conn: sqlite3.Connection) -> dict:
             conn.execute(
                 """
                 UPDATE members
-                SET name = ?, github_handle = ?, active = 1
+                SET name = ?, github_handle = ?, year = ?, active = 1
                 WHERE root_member_id = ?
                 """,
-                (name, github, root_id),
+                (name, github, year, root_id),
             )
             updated += 1
             member_db_id = existing["id"]
@@ -103,20 +109,20 @@ def sync_members(conn: sqlite3.Connection) -> dict:
                 conn.execute(
                     """
                     UPDATE members
-                    SET github_handle = ?, active = 1, root_member_id = ?
+                    SET github_handle = ?, year = ?, active = 1, root_member_id = ?
                     WHERE id = ?
                     """,
-                    (github, root_id, name_match["id"]),
+                    (github, year, root_id, name_match["id"]),
                 )
                 updated += 1
                 member_db_id = name_match["id"]
             else:
                 cur = conn.execute(
                     """
-                    INSERT INTO members (name, github_handle, active, root_member_id)
-                    VALUES (?, ?, 1, ?)
+                    INSERT INTO members (name, github_handle, year, active, root_member_id)
+                    VALUES (?, ?, ?, 1, ?)
                     """,
-                    (name, github, root_id),
+                    (name, github, year, root_id),
                 )
                 added += 1
                 member_db_id = cur.lastrowid

@@ -23,6 +23,7 @@ def init_db() -> None:
             id             INTEGER PRIMARY KEY,
             name           TEXT    NOT NULL UNIQUE,
             github_handle  TEXT,
+            year           INTEGER,
             active         INTEGER NOT NULL DEFAULT 1,
             root_member_id INTEGER UNIQUE
         );
