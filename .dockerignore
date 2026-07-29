@@ -16,3 +16,4 @@ flake.nix
 flake.lock
 plan.md
 member.csv
+web/

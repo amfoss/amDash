@@ -1,5 +1,7 @@
 anthropic>=0.40.0
 apscheduler>=3.10.0
 flask>=3.0.0
+gunicorn>=22.0.0
 python-dotenv>=1.0.0
 requests>=2.32.0
+supervisor>=4.2.0

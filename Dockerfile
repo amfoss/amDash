@@ -15,8 +15,8 @@ COPY --from=builder /install /usr/local
 COPY . .
 
 ENV PYTHONUNBUFFERED=1
-
-# DB lives on a mounted volume — /data is the expected mount point.
 ENV DB_PATH=/data/amdash.db
 
-CMD ["python", "scheduler.py"]
+EXPOSE 8000
+
+CMD ["supervisord", "-c", "/app/supervisord.conf"]
