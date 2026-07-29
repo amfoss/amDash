@@ -25,7 +25,7 @@ from root_client import sync_members
 
 load_dotenv()
 
-RUN_TIME_UTC = os.environ.get("PIPELINE_RUN_TIME", "06:00")
+RUN_TIME_UTC = os.environ.get("PIPELINE_RUN_TIME", "09:00")
 
 
 def _today() -> str:

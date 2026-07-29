@@ -1,4 +1,5 @@
 """Fetch today's status-update emails from Gmail via IMAP."""
+
 import email as email_lib
 import imaplib
 import os
@@ -18,7 +19,7 @@ class RawEmail:
     subject: str
     message_id: str | None
     received_at: datetime
-    report_date: str          # YYYY-MM-DD parsed from subject, else received_at date
+    report_date: str  # YYYY-MM-DD parsed from subject, else received_at date
     body: str
 
 
@@ -77,8 +78,8 @@ IMAP_TIMEOUT = 30  # seconds
 
 
 def fetch_inbox(date: datetime | None = None) -> list[RawEmail]:
-    email_id = os.environ["AMD_EMAIL_ID"]
-    app_password = os.environ["AMD_APP_PASSWORD"]
+    email_id = os.environ["AMDASH_EMAIL_ID"]
+    app_password = os.environ["AMDASH_APP_PASSWORD"]
     target_date = date or datetime.now()
     subject_filter = _subject_for_date(target_date)
 
@@ -112,7 +113,11 @@ def fetch_inbox(date: datetime | None = None) -> list[RawEmail]:
                     received_at = datetime.now(tz=timezone.utc)
                 report_date = _report_date_from_subject(subject, received_at)
                 body = _strip_signature(_get_plain_body(msg))
-                results.append(RawEmail(from_addr, subject, message_id, received_at, report_date, body))
+                results.append(
+                    RawEmail(
+                        from_addr, subject, message_id, received_at, report_date, body
+                    )
+                )
     finally:
         try:
             mail.logout()
