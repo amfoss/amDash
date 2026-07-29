@@ -84,6 +84,21 @@ def run(date: str | None = None, skip_dedup: bool = False) -> dict:
 
     email_ids = _store_raw_emails(raw_rows, conn)
     print(f"Stored {len(email_ids)} new emails (ids: {email_ids})")
+
+    # Also pick up any emails that were stored but never processed
+    # (e.g. due to a previous OverloadedError or crash mid-pipeline)
+    new_ids_set = set(email_ids)
+    pending_ids = [
+        r["id"]
+        for r in conn.execute(
+            "SELECT id FROM emails WHERE parse_status = 'pending'"
+        ).fetchall()
+        if r["id"] not in new_ids_set
+    ]
+    if pending_ids:
+        print(f"Found {len(pending_ids)} previously stuck pending email(s), reprocessing (ids: {pending_ids})")
+        email_ids = email_ids + pending_ids
+
     conn.close()
 
     if not email_ids:

@@ -9,6 +9,7 @@ import os
 import re
 import sqlite3
 import textwrap
+import time
 from datetime import datetime
 
 import anthropic
@@ -261,30 +262,46 @@ def extract_and_store(email_ids: list[int], conn: sqlite3.Connection) -> int:
     extra = {}
     if secret := os.environ.get("PROXY_SECRET"):
         extra["default_headers"] = {"x-proxy-secret": secret}
-    if proxy_url := os.environ.get("ANTHROPIC_PROXY_URL"):
+    proxy_url = os.environ.get("ANTHROPIC_BASE_URL")
+    if proxy_url:
         extra["base_url"] = proxy_url
-        extra.setdefault("api_key", "proxy")  # proxy handles auth; SDK requires a non-empty value
+        extra.setdefault(
+            "api_key", "proxy"
+        )  # proxy handles auth; SDK requires a non-empty value
     client = anthropic.Anthropic(**extra)
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=8192,
-        system=[
-            {
-                "type": "text",
-                "text": system_prompt,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[{"role": "user", "content": user_message}],
-        tools=[
-            {
-                "name": "store_contributions",
-                "description": "Store extracted contributions",
-                "input_schema": EXTRACTION_SCHEMA,
-            }
-        ],
-        tool_choice={"type": "tool", "name": "store_contributions"},
-    )
+
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            response = client.messages.create(
+                model=MODEL,
+                max_tokens=8192,
+                system=[
+                    {
+                        "type": "text",
+                        "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                messages=[{"role": "user", "content": user_message}],
+                tools=[
+                    {
+                        "name": "store_contributions",
+                        "description": "Store extracted contributions",
+                        "input_schema": EXTRACTION_SCHEMA,
+                    }
+                ],
+                tool_choice={"type": "tool", "name": "store_contributions"},
+            )
+            break
+        except anthropic.OverloadedError:
+            if attempt == max_retries - 1:
+                raise
+            wait = 2**attempt * 10  # 10s, 20s, 40s, 80s
+            print(
+                f"  Anthropic overloaded (attempt {attempt + 1}/{max_retries}), retrying in {wait}s..."
+            )
+            time.sleep(wait)
 
     if response.stop_reason == "max_tokens":
         raise RuntimeError(
