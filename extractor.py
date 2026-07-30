@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 MODEL = os.environ.get("EXTRACTION_MODEL", "claude-sonnet-5")
-EXTRACTION_VERSION = "0.2"
+EXTRACTION_VERSION = "0.3"
 
 CATEGORIES = [
     "club-project",
@@ -151,8 +151,10 @@ def _build_system_prompt(conn: sqlite3.Connection) -> str:
         Category definitions (critical — read carefully):
         - club-project: ONLY work on a project explicitly listed above in "Club-project entities".
           If the project is not in that list, do NOT use this category — use personal-project or open-source instead.
-        - personal-project: a member's own technical project that is NOT a sanctioned club project.
-          Side projects, college assignments turned into projects, tools the member built for themselves.
+        - personal-project: a member's own technical project that is NOT a sanctioned club project
+          AND is clearly described as a personal/side project by the member themselves (e.g. "my own
+          app", "side project I'm building", "personal tool"). Use this SPARINGLY — only when the
+          member explicitly frames it as their personal project.
         - open-source: contributions to external open-source repos (PRs, issues, patches).
         - academic: coursework, exams, college assignments, research papers.
         - learning: following a course, reading docs/books, watching tutorials, self-study.
@@ -160,7 +162,10 @@ def _build_system_prompt(conn: sqlite3.Connection) -> str:
         - hackathon: participating in a hackathon (not Hacktoberfest — that's an event).
         - event: participating in or organizing a club/college event (link the seeded event when applicable).
         - non-technical: anything non-technical (soft skills, meetings, admin work).
-        - other: genuinely does not fit any above category.
+        - other: use this as the default fallback whenever the contribution doesn't clearly fit
+          another category. When in doubt between personal-project and other, ALWAYS choose other.
+          Prefer other over personal-project unless the member explicitly identifies it as their
+          own personal/side project.
 
         ## Entity category consistency
         When you propose an entity_slug, the category you assign MUST match the entity's category
@@ -340,6 +345,8 @@ def extract_and_store(email_ids: list[int], conn: sqlite3.Connection) -> int:
             continue
         member_id = member_row["member_id"]
         date = email_row["report_date"]
+
+        conn.execute("DELETE FROM contributions WHERE email_id = ?", (eid,))
 
         for contrib in result.get("contributions", []):
             entity_id = None
