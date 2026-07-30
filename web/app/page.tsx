@@ -3,94 +3,10 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { type Member, type Category, type Status } from "./data/members";
-
-// ── category display config ────────────────────────────────────────────────────
-
-const CATEGORY_CONFIG: Record<Category, { label: string; bg: string; text: string }> = {
-  "club-project":            { label: "club-project",            bg: "#1E3A5F", text: "#93C5FD" },
-  "open-source":             { label: "open-source",             bg: "#1A3A2A", text: "#86EFAC" },
-  "learning":                { label: "learning",                bg: "#2D2A1A", text: "#FDE68A" },
-  "competitive-programming": { label: "competitive-programming", bg: "#2A1A3A", text: "#C4B5FD" },
-  "academic":                { label: "academic",                bg: "#2A2020", text: "#FCA5A5" },
-  "hackathon":               { label: "hackathon",               bg: "#1A2A2A", text: "#67E8F9" },
-  "event":                   { label: "event",                   bg: "#2A1F10", text: "#FCD34D" },
-  "non-technical":           { label: "non-technical",           bg: "#252525", text: "#D1D5DB" },
-  "other":                   { label: "other",                   bg: "#1E1E1E", text: "#6B7280" },
-};
-
-const STATUS_CONFIG: Record<Status, { color: string }> = {
-  ACTIVE:   { color: "#4ADE80" },
-  SILENT:   { color: "#F87171" },
-  INACTIVE: { color: "#6B7A99" },
-};
-
-const ALL_STATUSES: Status[] = ["ACTIVE", "SILENT", "INACTIVE"];
-const ALL_CATEGORIES: Category[] = [
-  "club-project", "open-source", "learning", "competitive-programming",
-  "academic", "hackathon", "event", "non-technical", "other",
-];
-
-// ── helpers ────────────────────────────────────────────────────────────────────
-
-function formatDaysAgo(days: number | null): string {
-  if (days === null) return "—";
-  if (days === 0) return "today";
-  if (days === 1) return "1d ago";
-  return `${days}d ago`;
-}
+import { CATEGORY_CONFIG, CATEGORY_ORDER, STATUS_CONFIG, ALL_STATUSES } from "./data/categories";
+import { StatusToken, CategoryChip, formatDaysAgo } from "./components/tokens";
 
 // ── sub-components ─────────────────────────────────────────────────────────────
-
-function StatusToken({ status }: { status: Status }) {
-  const cfg = STATUS_CONFIG[status];
-  if (status === "INACTIVE") {
-    return (
-      <span
-        style={{ color: cfg.color }}
-        className="text-[11px] font-bold tracking-[0.06em] uppercase"
-      >
-        inactive
-      </span>
-    );
-  }
-  return (
-    <span
-      style={{
-        color: cfg.color,
-        border: `1px solid ${cfg.color}44`,
-      }}
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[11px] font-bold tracking-[0.06em] uppercase"
-    >
-      <span
-        style={{
-          background: cfg.color,
-          width: "5px",
-          height: "5px",
-          borderRadius: "1px",
-          flexShrink: 0,
-          display: "inline-block",
-        }}
-      />
-      {status}
-    </span>
-  );
-}
-
-function CategoryChip({ category }: { category: Category }) {
-  const cfg = CATEGORY_CONFIG[category] ?? { label: category, bg: "#1E1E1E", text: "#6B7280" };
-  return (
-    <span
-      style={{
-        background: cfg.bg,
-        color: cfg.text,
-        border: `1px solid ${cfg.text}22`,
-      }}
-      className="inline-flex items-center px-1.5 py-px rounded-sm text-[11px] tracking-[0.01em]"
-    >
-      {cfg.label}
-    </span>
-  );
-}
 
 function CategoryChips({ categories }: { categories: Category[] }) {
   const visible = categories.slice(0, 4);
@@ -123,6 +39,7 @@ function FilterChip({
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       style={
         active
           ? {
@@ -156,7 +73,7 @@ function FilterChip({
   );
 }
 
-function MemberRow({ member, index }: { member: Member; index: number }) {
+function MemberRow({ member }: { member: Member }) {
   const [hovered, setHovered] = useState(false);
   const router = useRouter();
   const navigate = useCallback(() => router.push(`/member/${member.id}`), [router, member.id]);
@@ -164,21 +81,23 @@ function MemberRow({ member, index }: { member: Member; index: number }) {
   return (
     <tr
       onClick={navigate}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          navigate();
+        }
+      }}
+      tabIndex={0}
+      role="link"
+      aria-label={`Open ${member.name}'s activity — ${member.status.toLowerCase()}, last update ${formatDaysAgo(member.lastUpdateDaysAgo)}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{
-        background: hovered ? "#0F1420" : "transparent",
-        animationDelay: `${index * 18}ms`,
-        animationFillMode: "both",
-      }}
+      style={{ background: hovered ? "#0F1420" : "transparent" }}
       className="border-b border-[var(--border-subtle)] transition-colors duration-75 cursor-pointer"
     >
       {/* name */}
       <td className="py-3 pl-5 pr-6" style={{ minWidth: "160px" }}>
-        <span
-          className="text-[14px] font-medium"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <span className="text-[14px] font-medium" style={{ color: "var(--text-primary)" }}>
           {member.name}
         </span>
         {member.githubHandle && (
@@ -195,7 +114,7 @@ function MemberRow({ member, index }: { member: Member; index: number }) {
 
       {/* last update */}
       <td
-        className="py-3 pr-6 text-[12px] tabular-nums"
+        className="py-3 pr-6 text-[12px] tabular-nums whitespace-nowrap"
         style={{
           width: "96px",
           color:
@@ -265,43 +184,37 @@ function SkeletonRow() {
 // ── summary strip ──────────────────────────────────────────────────────────────
 
 function SummaryStrip({ members }: { members: Member[] }) {
-  const active = members.filter((m) => m.status === "ACTIVE").length;
-  const silent = members.filter((m) => m.status === "SILENT").length;
-  const total  = members.length;
+  const roster = members.filter((m) => m.active);
+  const active   = roster.filter((m) => m.status === "ACTIVE").length;
+  const silent   = roster.filter((m) => m.status === "SILENT").length;
+  const inactive = roster.filter((m) => m.status === "INACTIVE").length;
+  const total    = roster.length;
+
+  const Signal = ({ color, count, label }: { color: string; count: number; label: string }) => (
+    <span className="flex items-center gap-1.5">
+      <span
+        style={{
+          background: color,
+          boxShadow: `0 0 5px ${color}`,
+          width: "5px",
+          height: "5px",
+          borderRadius: "1px",
+          display: "inline-block",
+        }}
+      />
+      <span style={{ color }} className="font-bold">{count}</span>
+      <span>{label}</span>
+    </span>
+  );
 
   return (
     <div
-      className="flex items-center gap-5 text-[11px] tracking-[0.06em] uppercase"
+      className="flex items-center gap-x-5 gap-y-1.5 flex-wrap text-[11px] tracking-[0.06em] uppercase"
       style={{ color: "var(--text-muted)" }}
     >
-      <span className="flex items-center gap-1.5">
-        <span
-          style={{
-            background: "#4ADE80",
-            boxShadow: "0 0 5px #4ADE80",
-            width: "5px",
-            height: "5px",
-            borderRadius: "1px",
-            display: "inline-block",
-          }}
-        />
-        <span style={{ color: "#4ADE80" }} className="font-bold">{active}</span>
-        <span>active</span>
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span
-          style={{
-            background: "#F87171",
-            boxShadow: "0 0 5px #F87171",
-            width: "5px",
-            height: "5px",
-            borderRadius: "1px",
-            display: "inline-block",
-          }}
-        />
-        <span style={{ color: "#F87171" }} className="font-bold">{silent}</span>
-        <span>silent</span>
-      </span>
+      <Signal color={STATUS_CONFIG.ACTIVE.color}   count={active}   label="active" />
+      <Signal color={STATUS_CONFIG.SILENT.color}   count={silent}   label="silent" />
+      <Signal color={STATUS_CONFIG.INACTIVE.color} count={inactive} label="inactive" />
       <span style={{ opacity: 0.3 }}>|</span>
       <span>{total} members</span>
     </div>
@@ -316,8 +229,9 @@ export default function RosterPage() {
   const [error, setError] = useState<string | null>(null);
   const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
 
-  const [statusFilters, setCategoryStatus] = useState<Set<Status>>(new Set());
+  const [statusFilters, setStatusFilters] = useState<Set<Status>>(new Set());
   const [categoryFilters, setCategoryFilters] = useState<Set<Category>>(new Set());
+
   useEffect(() => {
     fetch("/api/members")
       .then((r) => {
@@ -345,7 +259,7 @@ export default function RosterPage() {
   }, []);
 
   const toggleStatus = (s: Status) => {
-    setCategoryStatus((prev) => {
+    setStatusFilters((prev) => {
       const next = new Set(prev);
       next.has(s) ? next.delete(s) : next.add(s);
       return next;
@@ -380,18 +294,18 @@ export default function RosterPage() {
 
       {/* ── top bar ── */}
       <header
-        className="flex items-center justify-between px-6 py-3.5"
+        className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <span
-            className="text-[15px] font-bold tracking-[0.1em] uppercase"
+            className="text-[15px] font-bold tracking-[0.1em] uppercase shrink-0"
             style={{ color: "var(--text-primary)" }}
           >
             amDash
           </span>
           <span
-            className="text-[11px] tracking-[0.04em]"
+            className="text-[11px] tracking-[0.04em] truncate hidden sm:inline"
             style={{
               color: "var(--text-muted)",
               borderLeft: "1px solid var(--border)",
@@ -402,7 +316,7 @@ export default function RosterPage() {
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
             pipeline:{" "}
             <span style={{ color: "var(--text-secondary)" }}>
@@ -424,13 +338,13 @@ export default function RosterPage() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col px-6 py-5 gap-4 w-full max-w-6xl mx-auto">
+      <main className="flex-1 flex flex-col px-4 sm:px-6 py-5 gap-4 w-full max-w-6xl mx-auto">
 
         {/* ── summary ── */}
         <SummaryStrip members={members} />
 
         {/* ── filter bar ── */}
-        <div className="flex flex-wrap items-start gap-4">
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
           {/* status */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <span
@@ -451,7 +365,8 @@ export default function RosterPage() {
           </div>
 
           <div
-            style={{ width: "1px", background: "var(--border)", alignSelf: "stretch" }}
+            className="hidden sm:block self-stretch"
+            style={{ width: "1px", background: "var(--border)" }}
           />
 
           {/* category */}
@@ -462,7 +377,7 @@ export default function RosterPage() {
             >
               category
             </span>
-            {ALL_CATEGORIES.map((c) => (
+            {CATEGORY_ORDER.map((c) => (
               <FilterChip
                 key={c}
                 label={CATEGORY_CONFIG[c].label}
@@ -472,18 +387,17 @@ export default function RosterPage() {
               />
             ))}
           </div>
-
         </div>
 
         {/* ── table ── */}
         <div
+          className="overflow-x-auto"
           style={{
             border: "1px solid var(--border)",
             borderRadius: "4px",
-            overflow: "hidden",
           }}
         >
-          <table className="w-full border-collapse text-left">
+          <table className="w-full border-collapse text-left" style={{ minWidth: "640px" }}>
             <thead>
               <tr
                 style={{
@@ -530,37 +444,25 @@ export default function RosterPage() {
                 Array.from({ length: 10 }, (_, i) => <SkeletonRow key={i} />)
               ) : error ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="py-10 pl-5 text-[13px]"
-                    style={{ color: "#F87171" }}
-                  >
+                  <td colSpan={6} className="py-10 pl-5 text-[13px]" style={{ color: "#F87171" }}>
                     [ ERROR ] Could not reach API: {error}
                   </td>
                 </tr>
               ) : dbEmpty ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="py-10 pl-5 text-[13px]"
-                    style={{ color: "#FBBF24" }}
-                  >
+                  <td colSpan={6} className="py-10 pl-5 text-[13px]" style={{ color: "#FBBF24" }}>
                     [ WARN ] No status updates indexed yet. Pipeline has not run.
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="py-10 pl-5 text-[12px]"
-                    style={{ color: "var(--text-muted)" }}
-                  >
+                  <td colSpan={6} className="py-10 pl-5 text-[12px]" style={{ color: "var(--text-muted)" }}>
                     [ INFO ] No members match the active filters.
                   </td>
                 </tr>
               ) : (
-                filtered.map((m, i) => (
-                  <MemberRow key={m.id} member={m} index={i} />
+                filtered.map((m) => (
+                  <MemberRow key={m.id} member={m} />
                 ))
               )}
             </tbody>
@@ -568,10 +470,7 @@ export default function RosterPage() {
         </div>
 
         {/* ── cadence note ── */}
-        <p
-          className="text-[11px] leading-relaxed"
-          style={{ color: "var(--text-muted)" }}
-        >
+        <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
           status is derived from{" "}
           <em style={{ color: "var(--text-secondary)", fontStyle: "normal" }}>
             emails.received_at

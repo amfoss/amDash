@@ -1,5 +1,6 @@
 export type Category =
   | "club-project"
+  | "personal-project"
   | "open-source"
   | "learning"
   | "competitive-programming"

@@ -4,7 +4,7 @@
   with status tokens forming a phosphor stripe that tells the club's health story at a glance.
 
   OWN-WORLD: Deep terminal slate #0B0E14, three phosphor tones (green/amber/red) for operational
-  status, Commit Mono throughout. No decorative color. Rows not cards.
+  status, IBM Plex Mono throughout. No decorative color. Rows not cards.
 
   STORY: A lead opens the roster, the phosphor column tells them who is quiet in seconds.
   They click a name to see the full evidence trail.
@@ -20,7 +20,7 @@ import { IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
 const ibmPlexMono = IBM_Plex_Mono({
-  variable: "--font-commit-mono",
+  variable: "--font-plex-mono",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
 });

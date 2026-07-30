@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { type Category, type Status } from "../../data/members";
+import { CATEGORY_ORDER, categoryConfig } from "../../data/categories";
+import { StatusToken, CategoryChip, formatDaysAgo } from "../../components/tokens";
 
 // ── types ──────────────────────────────────────────────────────────────────────
 
@@ -81,6 +83,7 @@ function EmailModal({
   const [data, setData] = useState<EmailDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setData(null);
@@ -95,11 +98,17 @@ function EmailModal({
       .catch((e: Error) => { setErr(e.message); setLoading(false); });
   }, [emailId]);
 
-  // close on Escape
+  // close on Escape; lock body scroll; move focus into the dialog
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.focus();
+    return () => {
+      document.removeEventListener("keydown", handler);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [onClose]);
 
   const statusColor = data ? (PARSE_STATUS_COLOR[data.parse_status] ?? "#6B7A99") : "#6B7A99";
@@ -115,10 +124,15 @@ function EmailModal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "24px",
+        padding: "16px",
       }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Source email ${emailId}`}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "var(--surface)",
@@ -126,11 +140,12 @@ function EmailModal({
           borderRadius: "6px",
           width: "100%",
           maxWidth: "760px",
-          maxHeight: "calc(100vh - 48px)",
+          maxHeight: "calc(100vh - 32px)",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
           boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+          outline: "none",
         }}
       >
         {/* ── modal header ── */}
@@ -319,7 +334,7 @@ function EmailModal({
                           color: c.confidence >= 0.8 ? "#4ADE80" : c.confidence >= 0.5 ? "#FBBF24" : "#F87171",
                           marginTop: "2px",
                         }}
-                        title={`confidence: ${Math.round(c.confidence * 100)}%`}
+                        title={`extraction confidence: ${Math.round(c.confidence * 100)}%`}
                       >
                         {Math.round(c.confidence * 100)}%
                       </span>
@@ -335,112 +350,10 @@ function EmailModal({
   );
 }
 
-// ── category config ────────────────────────────────────────────────────────────
-
-const CATEGORY_CONFIG: Record<Category, { label: string; bg: string; text: string }> = {
-  "club-project":            { label: "club-project",            bg: "#1E3A5F", text: "#93C5FD" },
-  "open-source":             { label: "open-source",             bg: "#1A3A2A", text: "#86EFAC" },
-  "learning":                { label: "learning",                bg: "#2D2A1A", text: "#FDE68A" },
-  "competitive-programming": { label: "competitive-programming", bg: "#2A1A3A", text: "#C4B5FD" },
-  "academic":                { label: "academic",                bg: "#2A2020", text: "#FCA5A5" },
-  "hackathon":               { label: "hackathon",               bg: "#1A2A2A", text: "#67E8F9" },
-  "event":                   { label: "event",                   bg: "#2A1F10", text: "#FCD34D" },
-  "non-technical":           { label: "non-technical",           bg: "#252525", text: "#D1D5DB" },
-  "other":                   { label: "other",                   bg: "#1E1E1E", text: "#6B7280" },
-};
-
-const CATEGORY_ORDER: Category[] = [
-  "club-project",
-  "open-source",
-  "event",
-  "hackathon",
-  "non-technical",
-  "learning",
-  "competitive-programming",
-  "academic",
-  "other",
-];
-
-const STATUS_CONFIG: Record<Status, { color: string }> = {
-  ACTIVE:   { color: "#4ADE80" },
-  SILENT:   { color: "#F87171" },
-  INACTIVE: { color: "#6B7A99" },
-};
-
 // ── helpers ────────────────────────────────────────────────────────────────────
 
-function formatDaysAgo(days: number | null): string {
-  if (days === null) return "—";
-  if (days === 0) return "today";
-  if (days === 1) return "1d ago";
-  return `${days}d ago`;
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return iso.slice(0, 10);
-}
-
-// ── sub-components ─────────────────────────────────────────────────────────────
-
-function StatusToken({ status }: { status: Status }) {
-  const cfg = STATUS_CONFIG[status];
-  if (status === "INACTIVE") {
-    return (
-      <span
-        style={{ color: cfg.color }}
-        className="text-[11px] font-bold tracking-[0.06em] uppercase"
-      >
-        inactive
-      </span>
-    );
-  }
-  return (
-    <span
-      style={{
-        color: cfg.color,
-        border: `1px solid ${cfg.color}44`,
-      }}
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[11px] font-bold tracking-[0.06em] uppercase"
-    >
-      <span
-        style={{
-          background: cfg.color,
-          width: "5px",
-          height: "5px",
-          borderRadius: "1px",
-          flexShrink: 0,
-          display: "inline-block",
-        }}
-      />
-      {status}
-    </span>
-  );
-}
-
-function CategoryChip({ category }: { category: Category }) {
-  const cfg = CATEGORY_CONFIG[category] ?? { label: category, bg: "#1E1E1E", text: "#6B7280" };
-  return (
-    <span
-      style={{
-        background: cfg.bg,
-        color: cfg.text,
-        border: `1px solid ${cfg.text}22`,
-      }}
-      className="inline-flex items-center px-1.5 py-px rounded-sm text-[11px] tracking-[0.01em]"
-    >
-      {cfg.label}
-    </span>
-  );
-}
-
 function Skeleton({ w, h = "12px" }: { w: string; h?: string }) {
-  return (
-    <span
-      className="skeleton block rounded-sm"
-      style={{ width: w, height: h }}
-    />
-  );
+  return <span className="skeleton block rounded-sm" style={{ width: w, height: h }} />;
 }
 
 // ── heatmap ────────────────────────────────────────────────────────────────────
@@ -492,44 +405,49 @@ function ActivityHeatmap({ contributions }: { contributions: Contribution[] }) {
 
   return (
     <div>
-      {/* month labels */}
-      <div className="relative mb-1" style={{ height: "14px" }}>
-        {monthLabels.map(({ label, colIndex }) => (
-          <span
-            key={`${label}-${colIndex}`}
-            style={{
-              position: "absolute",
-              left: `${colIndex * 12}px`,
-              color: "var(--text-muted)",
-              fontSize: "10px",
-              letterSpacing: "0.06em",
-            }}
-          >
-            {label}
-          </span>
-        ))}
-      </div>
-
-      {/* grid */}
-      <div className="flex gap-[3px]">
-        {weeks.map((week, wi) => (
-          <div key={wi} className="flex flex-col gap-[3px]">
-            {week.map(({ date, active }) => (
-              <div
-                key={date}
-                title={`${date} · ${active ? "email sent" : "no update"}`}
+      {/* scroll container — the year grid is wider than a phone; scroll rather than clip */}
+      <div className="overflow-x-auto pb-1">
+        <div style={{ width: "fit-content" }}>
+          {/* month labels */}
+          <div className="relative mb-1" style={{ height: "14px" }}>
+            {monthLabels.map(({ label, colIndex }) => (
+              <span
+                key={`${label}-${colIndex}`}
                 style={{
-                  width: "9px",
-                  height: "9px",
-                  borderRadius: "2px",
-                  background: active ? "#4ADE80" : "var(--border)",
-                  opacity: active ? 0.85 : 1,
-                  flexShrink: 0,
+                  position: "absolute",
+                  left: `${colIndex * 12}px`,
+                  color: "var(--text-muted)",
+                  fontSize: "10px",
+                  letterSpacing: "0.06em",
                 }}
-              />
+              >
+                {label}
+              </span>
             ))}
           </div>
-        ))}
+
+          {/* grid */}
+          <div className="flex gap-[3px]">
+            {weeks.map((week, wi) => (
+              <div key={wi} className="flex flex-col gap-[3px]">
+                {week.map(({ date, active }) => (
+                  <div
+                    key={date}
+                    title={`${date} · ${active ? "email sent" : "no update"}`}
+                    style={{
+                      width: "9px",
+                      height: "9px",
+                      borderRadius: "2px",
+                      background: active ? "#4ADE80" : "var(--border)",
+                      opacity: active ? 0.85 : 1,
+                      flexShrink: 0,
+                    }}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <p className="mt-2 text-[10px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
@@ -606,7 +524,7 @@ function EntitySection({
   entities: EntitySummary[];
 }) {
   const [expanded, setExpanded] = useState(false);
-  const cfg = CATEGORY_CONFIG[category];
+  const cfg = categoryConfig(category);
   const visible = expanded ? entities : entities.slice(0, 10);
   const overflow = entities.length - 10;
 
@@ -629,20 +547,14 @@ function EntitySection({
               background: "transparent",
             }}
           >
-            <span
-              className="flex-1 text-[13px]"
-              style={{ color: "var(--text-primary)" }}
-            >
+            <span className="flex-1 text-[13px] min-w-0 break-words" style={{ color: "var(--text-primary)" }}>
               {e.displayName}
             </span>
-            <span
-              className="text-[11px] tabular-nums"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <span className="text-[11px] tabular-nums shrink-0" style={{ color: "var(--text-secondary)" }}>
               {e.contribCount}
             </span>
             <span
-              className="text-[11px] tabular-nums w-[80px] text-right"
+              className="text-[11px] tabular-nums w-[80px] text-right shrink-0"
               style={{ color: "var(--text-muted)" }}
             >
               {e.lastActive ?? "—"}
@@ -658,12 +570,8 @@ function EntitySection({
               borderTop: "1px solid var(--border-subtle)",
               background: "transparent",
             }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.color = "var(--text-secondary)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = "var(--text-muted)")
-            }
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
           >
             + {overflow} more
           </button>
@@ -744,10 +652,20 @@ function ContribRow({
   onOpenEmail: (id: number) => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const open = () => onOpenEmail(contrib.email_id);
 
   return (
     <div
-      onClick={() => onOpenEmail(contrib.email_id)}
+      onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open();
+        }
+      }}
+      tabIndex={0}
+      role="button"
+      aria-label={`View source email for ${contrib.date.slice(0, 10)} contribution`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -769,27 +687,18 @@ function ContribRow({
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <CategoryChip category={contrib.category as Category} />
             {contrib.entity_name && (
-              <span
-                className="text-[11px]"
-                style={{ color: "var(--text-secondary)" }}
-              >
+              <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
                 {contrib.entity_name}
               </span>
             )}
             {contrib.event_name && (
-              <span
-                className="text-[11px]"
-                style={{ color: "var(--text-muted)" }}
-              >
+              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
                 · {contrib.event_name}
                 {contrib.event_role ? ` (${contrib.event_role})` : ""}
               </span>
             )}
           </div>
-          <p
-            className="text-[12px] leading-relaxed"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {contrib.activity_text}
           </p>
         </div>
@@ -863,9 +772,7 @@ function SectionSkeleton({ rows = 3 }: { rows?: number }) {
       <div className="mb-3 pb-2" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
         <Skeleton w="100px" h="10px" />
       </div>
-      <div
-        style={{ border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}
-      >
+      <div style={{ border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}>
         {Array.from({ length: rows }, (_, i) => (
           <div
             key={i}
@@ -883,15 +790,17 @@ function SectionSkeleton({ rows = 3 }: { rows?: number }) {
 }
 
 // ── category bar ───────────────────────────────────────────────────────────────
+// Derived from the full contribution set (not entity summaries) so it reflects
+// every logged contribution — including those with no resolved entity.
 
-function CategoryBar({ entitySummaries }: { entitySummaries: EntitySummary[] }) {
+function CategoryBar({ contributions }: { contributions: Contribution[] }) {
   const counts = useMemo(() => {
     const m = new Map<Category, number>();
-    entitySummaries.forEach((e) => {
-      m.set(e.category, (m.get(e.category) ?? 0) + e.contribCount);
+    contributions.forEach((c) => {
+      m.set(c.category, (m.get(c.category) ?? 0) + 1);
     });
     return m;
-  }, [entitySummaries]);
+  }, [contributions]);
 
   const total = Array.from(counts.values()).reduce((a, b) => a + b, 0);
   if (total === 0) return null;
@@ -900,20 +809,17 @@ function CategoryBar({ entitySummaries }: { entitySummaries: EntitySummary[] }) 
     category: c,
     count: counts.get(c)!,
     pct: (counts.get(c)! / total) * 100,
-    cfg: CATEGORY_CONFIG[c],
+    cfg: categoryConfig(c),
   }));
 
   return (
     <div>
       {/* bar */}
-      <div
-        className="flex w-full overflow-hidden"
-        style={{ height: "6px", borderRadius: "3px", gap: "2px" }}
-      >
-        {segments.map(({ category, pct, cfg }) => (
+      <div className="flex w-full overflow-hidden" style={{ height: "6px", borderRadius: "3px", gap: "2px" }}>
+        {segments.map(({ category, count, pct, cfg }) => (
           <div
             key={category}
-            title={`${cfg.label}: ${counts.get(category)} contribs`}
+            title={`${cfg.label}: ${count} contribution${count !== 1 ? "s" : ""}`}
             style={{
               width: `${pct}%`,
               background: cfg.text,
@@ -983,9 +889,7 @@ export default function MemberPage() {
   const orderedCategories = useMemo(() => {
     if (!member) return [];
     const present = new Set(member.entitySummaries.map((e) => e.category));
-    return CATEGORY_ORDER.filter(
-      (c) => c !== "club-project" && present.has(c)
-    );
+    return CATEGORY_ORDER.filter((c) => c !== "club-project" && present.has(c));
   }, [member]);
 
   const entitiesByCategory = useMemo(() => {
@@ -998,15 +902,14 @@ export default function MemberPage() {
     return m as Record<Category, EntitySummary[]>;
   }, [member]);
 
-  const noContribs =
-    !isLoading && !error && member && member.contribCount === 0;
+  const noContribs = !isLoading && !error && member && member.contribCount === 0;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
 
       {/* ── top bar ── */}
       <header
-        className="flex items-center justify-between px-6 py-3.5"
+        className="flex items-center justify-between px-4 sm:px-6 py-3.5"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
         <div className="flex items-center gap-3">
@@ -1014,22 +917,13 @@ export default function MemberPage() {
             href="/"
             className="text-[11px] tracking-[0.04em] transition-colors duration-75"
             style={{ color: "var(--text-muted)", textDecoration: "none" }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.color = "var(--text-secondary)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = "var(--text-muted)")
-            }
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
           >
             ← roster
           </a>
           <span
-            style={{
-              width: "1px",
-              height: "12px",
-              background: "var(--border)",
-              display: "inline-block",
-            }}
+            style={{ width: "1px", height: "12px", background: "var(--border)", display: "inline-block" }}
           />
           <span
             className="text-[15px] font-bold tracking-[0.1em] uppercase"
@@ -1040,7 +934,7 @@ export default function MemberPage() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col px-6 py-6 gap-8 w-full max-w-4xl mx-auto">
+      <main className="flex-1 flex flex-col px-4 sm:px-6 py-6 gap-8 w-full max-w-4xl mx-auto">
 
         {/* ── hero ── */}
         {isLoading ? (
@@ -1054,14 +948,11 @@ export default function MemberPage() {
             [ ERROR ] Could not reach API: {error}
           </p>
         ) : member ? (
-          <div
-            className="pb-6"
-            style={{ borderBottom: "1px solid var(--border)" }}
-          >
+          <div className="pb-6" style={{ borderBottom: "1px solid var(--border)" }}>
             <div className="flex items-start justify-between gap-4 mb-3">
-              <div>
+              <div className="min-w-0">
                 <h1
-                  className="text-[22px] font-medium mb-1"
+                  className="text-[22px] font-medium mb-1 break-words"
                   style={{ color: "var(--text-primary)", letterSpacing: "-0.01em" }}
                 >
                   {member.name}
@@ -1072,26 +963,21 @@ export default function MemberPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[12px] transition-colors duration-75"
-                    style={{
-                      color: "var(--text-muted)",
-                      textDecoration: "none",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.color = "var(--accent)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.color = "var(--text-muted)")
-                    }
+                    style={{ color: "var(--text-muted)", textDecoration: "none" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
                   >
                     @{member.githubHandle}
                   </a>
                 )}
               </div>
-              <StatusToken status={member.status} />
+              <div className="shrink-0">
+                <StatusToken status={member.status} />
+              </div>
             </div>
 
             <div
-              className="flex items-center gap-5 text-[11px] tracking-[0.04em] mb-4"
+              className="flex items-center gap-x-5 gap-y-1 flex-wrap text-[11px] tracking-[0.04em] mb-4"
               style={{ color: "var(--text-muted)" }}
             >
               <span>
@@ -1102,21 +988,15 @@ export default function MemberPage() {
               </span>
               <span style={{ opacity: 0.3 }}>|</span>
               <span>
-                <span style={{ color: "var(--text-secondary)" }}>
-                  {member.activeDays}
-                </span>{" "}
-                active days
+                <span style={{ color: "var(--text-secondary)" }}>{member.activeDays}</span> active days
               </span>
               <span style={{ opacity: 0.3 }}>|</span>
               <span>
-                <span style={{ color: "var(--text-secondary)" }}>
-                  {member.contribCount}
-                </span>{" "}
-                contributions
+                <span style={{ color: "var(--text-secondary)" }}>{member.contribCount}</span> contributions
               </span>
             </div>
 
-            <CategoryBar entitySummaries={member.entitySummaries} />
+            <CategoryBar contributions={member.contributions} />
           </div>
         ) : null}
 
