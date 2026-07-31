@@ -115,7 +115,7 @@ function MemberCard({ member }: { member: Member }) {
               className="display font-semibold tabular-nums"
               style={{
                 fontSize: "13px",
-                background: "var(--surface-2)",
+                background: "var(--pod-bg)",
                 border: "1px solid var(--border)",
                 borderRadius: "999px",
                 padding: "4px 10px",
@@ -130,7 +130,7 @@ function MemberCard({ member }: { member: Member }) {
               className="display font-bold tabular-nums"
               style={{
                 fontSize: "13px",
-                background: "var(--surface-2)",
+                background: "var(--pod-bg)",
                 border: "1px solid var(--border)",
                 borderRadius: "999px",
                 padding: "4px 10px",
