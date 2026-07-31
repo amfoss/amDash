@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { type Member, type Status } from "./data/members";
+import { type Member, type Category, type Status } from "./data/members";
 import { ALL_STATUSES, STATUS_CONFIG } from "./data/categories";
 import { StatusToken, CategoryChip, formatDaysAgo } from "./components/tokens";
 
