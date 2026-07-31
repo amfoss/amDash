@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { type Member, type Category, type Status } from "./data/members";
-import { CATEGORY_CONFIG, CATEGORY_ORDER, STATUS_CONFIG, ALL_STATUSES } from "./data/categories";
+import { STATUS_CONFIG, ALL_STATUSES } from "./data/categories";
 import { StatusToken, CategoryChip, formatDaysAgo } from "./components/tokens";
 
 // ── sub-components ─────────────────────────────────────────────────────────────
@@ -112,6 +112,14 @@ function MemberRow({ member }: { member: Member }) {
         <StatusToken status={member.status} />
       </td>
 
+      {/* year */}
+      <td
+        className="py-3 pr-6 text-[12px] tabular-nums whitespace-nowrap"
+        style={{ width: "64px", color: "var(--text-secondary)" }}
+      >
+        {member.year ?? "—"}
+      </td>
+
       {/* last update */}
       <td
         className="py-3 pr-6 text-[12px] tabular-nums whitespace-nowrap"
@@ -166,6 +174,9 @@ function SkeletonRow() {
       </td>
       <td className="py-3 pr-6">
         <span className="skeleton block h-5 rounded-sm" style={{ width: "72px" }} />
+      </td>
+      <td className="py-3 pr-6">
+        <span className="skeleton block h-3 rounded-sm" style={{ width: "24px" }} />
       </td>
       <td className="py-3 pr-6">
         <span className="skeleton block h-3 rounded-sm" style={{ width: "48px" }} />
@@ -230,7 +241,7 @@ export default function RosterPage() {
   const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
 
   const [statusFilters, setStatusFilters] = useState<Set<Status>>(new Set());
-  const [categoryFilters, setCategoryFilters] = useState<Set<Category>>(new Set());
+  const [yearSort, setYearSort] = useState<"asc" | "desc" | null>(null);
 
   useEffect(() => {
     fetch("/api/members")
@@ -266,26 +277,21 @@ export default function RosterPage() {
     });
   };
 
-  const toggleCategory = (c: Category) => {
-    setCategoryFilters((prev) => {
-      const next = new Set(prev);
-      next.has(c) ? next.delete(c) : next.add(c);
-      return next;
-    });
-  };
-
   const filtered = useMemo(() => {
-    return members.filter((m) => {
+    const activeMembers = members.filter((m) => {
       if (!m.active) return false;
       if (statusFilters.size > 0 && !statusFilters.has(m.status)) return false;
-      if (
-        categoryFilters.size > 0 &&
-        !m.activeCategories.some((c) => categoryFilters.has(c))
-      )
-        return false;
       return true;
     });
-  }, [members, statusFilters, categoryFilters]);
+
+    if (!yearSort) return activeMembers;
+
+    return [...activeMembers].sort((a, b) => {
+      if (a.year === null) return 1;
+      if (b.year === null) return -1;
+      return yearSort === "asc" ? a.year - b.year : b.year - a.year;
+    });
+  }, [members, statusFilters, yearSort]);
 
   const dbEmpty = !isLoading && !error && members.length === 0;
 
@@ -364,29 +370,6 @@ export default function RosterPage() {
             ))}
           </div>
 
-          <div
-            className="hidden sm:block self-stretch"
-            style={{ width: "1px", background: "var(--border)" }}
-          />
-
-          {/* category */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span
-              className="text-[10px] tracking-[0.08em] uppercase mr-1"
-              style={{ color: "var(--text-muted)" }}
-            >
-              category
-            </span>
-            {CATEGORY_ORDER.map((c) => (
-              <FilterChip
-                key={c}
-                label={CATEGORY_CONFIG[c].label}
-                active={categoryFilters.has(c)}
-                color={CATEGORY_CONFIG[c].text}
-                onClick={() => toggleCategory(c)}
-              />
-            ))}
-          </div>
         </div>
 
         {/* ── table ── */}
@@ -419,6 +402,19 @@ export default function RosterPage() {
                 </th>
                 <th
                   className="py-2.5 pr-6 text-[10px] tracking-[0.12em] uppercase font-normal"
+                  style={{ color: "var(--text-muted)", width: "64px" }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setYearSort((current) => current === "asc" ? "desc" : "asc")}
+                    className="cursor-pointer hover:text-[var(--text-primary)] transition-colors"
+                    aria-label={`Sort by year ${yearSort === "asc" ? "descending" : "ascending"}`}
+                  >
+                    year{yearSort === "asc" ? " ↑" : yearSort === "desc" ? " ↓" : ""}
+                  </button>
+                </th>
+                <th
+                  className="py-2.5 pr-6 text-[10px] tracking-[0.12em] uppercase font-normal"
                   style={{ color: "var(--text-muted)", width: "96px" }}
                 >
                   last update
@@ -444,19 +440,19 @@ export default function RosterPage() {
                 Array.from({ length: 10 }, (_, i) => <SkeletonRow key={i} />)
               ) : error ? (
                 <tr>
-                  <td colSpan={6} className="py-10 pl-5 text-[13px]" style={{ color: "#F87171" }}>
+                  <td colSpan={7} className="py-10 pl-5 text-[13px]" style={{ color: "#F87171" }}>
                     [ ERROR ] Could not reach API: {error}
                   </td>
                 </tr>
               ) : dbEmpty ? (
                 <tr>
-                  <td colSpan={6} className="py-10 pl-5 text-[13px]" style={{ color: "#FBBF24" }}>
+                  <td colSpan={7} className="py-10 pl-5 text-[13px]" style={{ color: "#FBBF24" }}>
                     [ WARN ] No status updates indexed yet. Pipeline has not run.
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 pl-5 text-[12px]" style={{ color: "var(--text-muted)" }}>
+                  <td colSpan={7} className="py-10 pl-5 text-[12px]" style={{ color: "var(--text-muted)" }}>
                     [ INFO ] No members match the active filters.
                   </td>
                 </tr>

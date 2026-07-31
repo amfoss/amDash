@@ -47,7 +47,7 @@ def api_members():
     conn = get_conn()
     rows = conn.execute(
         """
-        SELECT m.id, m.name, m.github_handle, m.active,
+        SELECT m.id, m.name, m.github_handle, m.year, m.active,
                MAX(c.date) AS last_update,
                COUNT(c.id) AS contrib_count,
                GROUP_CONCAT(DISTINCT e.category) AS categories
@@ -67,6 +67,7 @@ def api_members():
             "id": r["id"],
             "name": r["name"],
             "githubHandle": r["github_handle"],
+            "year": r["year"],
             "active": bool(r["active"]),
             "status": _status_from_last(last_update),
             "lastUpdateDaysAgo": _days_ago(last_update),
