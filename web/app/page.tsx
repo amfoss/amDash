@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { type Member, type Category, type Status } from "./data/members";
-import { CATEGORY_CONFIG, CATEGORY_ORDER, STATUS_CONFIG, ALL_STATUSES } from "./data/categories";
-import { StatusToken, CategoryChip, AvatarPod, formatDaysAgo } from "./components/tokens";
+import { type Member, type Status } from "./data/members";
+import { ALL_STATUSES, STATUS_CONFIG } from "./data/categories";
+import { StatusToken, CategoryChip, formatDaysAgo } from "./components/tokens";
 
 // ── sub-components ─────────────────────────────────────────────────────────────
 
@@ -86,8 +86,16 @@ function MemberCard({ member }: { member: Member }) {
       </span>
 
       <div className="relative flex flex-col gap-3 p-5">
-        <AvatarPod name={member.name} />
 
+        {/* row 1: status badge + last update */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <StatusToken status={member.status} />
+          <span className="text-[12px] tabular-nums" style={{ color: "var(--card-dim)" }}>
+            {formatDaysAgo(member.lastUpdateDaysAgo)}
+          </span>
+        </div>
+
+        {/* row 2: name + github */}
         <div className="min-w-0">
           <span
             className="display block text-[18px] font-semibold truncate"
@@ -100,19 +108,44 @@ function MemberCard({ member }: { member: Member }) {
           </span>
         </div>
 
+        {/* row 3: year badge + contribs — the two secondary signals */}
         <div className="flex items-center gap-2 flex-wrap">
-          <StatusToken status={member.status} />
-          <span className="text-[12px] tabular-nums" style={{ color: "var(--card-dim)" }}>
-            {formatDaysAgo(member.lastUpdateDaysAgo)}
-          </span>
           {member.year !== null && (
-            <span className="text-[12px] tabular-nums" style={{ color: "var(--card-dim)" }}>
-              yr {member.year}
+            <span
+              className="display font-semibold tabular-nums"
+              style={{
+                fontSize: "13px",
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                borderRadius: "999px",
+                padding: "4px 10px",
+                color: "var(--card-ink)",
+              }}
+            >
+              Year {member.year}
             </span>
           )}
-          <span className="text-[12px] tabular-nums ml-auto" style={{ color: "var(--card-dim)" }}>
-            {member.contribCount > 0 ? `${member.contribCount} contribs` : "—"}
-          </span>
+          {member.contribCount > 0 && (
+            <span
+              className="display font-bold tabular-nums"
+              style={{
+                fontSize: "13px",
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                borderRadius: "999px",
+                padding: "4px 10px",
+                color: "var(--card-ink)",
+              }}
+            >
+              {member.contribCount}
+              <span className="font-normal" style={{ color: "var(--card-dim)", marginLeft: "4px" }}>
+                contribs
+              </span>
+            </span>
+          )}
+          {member.contribCount === 0 && (
+            <span className="text-[12px] tabular-nums" style={{ color: "var(--card-dim)" }}>—</span>
+          )}
         </div>
 
         {member.activeCategories.length > 0 && (
@@ -128,7 +161,7 @@ function SkeletonCard() {
     <div className="notch-card">
       <span className="notch-card__bg" aria-hidden="true" />
       <div className="relative flex flex-col gap-3 p-5">
-        <span className="skeleton block" style={{ width: "44px", height: "44px", borderRadius: "50%" }} />
+        <span className="skeleton block h-6" style={{ width: "56px", borderRadius: "999px" }} />
         <span className="skeleton block h-4" style={{ width: "60%" }} />
         <span className="skeleton block h-3" style={{ width: "40%" }} />
         <span className="skeleton block h-6" style={{ width: "80%" }} />
@@ -200,7 +233,6 @@ export default function RosterPage() {
   const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
 
   const [statusFilters, setStatusFilters] = useState<Set<Status>>(new Set());
-  const [categoryFilters, setCategoryFilters] = useState<Set<Category>>(new Set());
   const [yearSort, setYearSort] = useState<"asc" | "desc" | null>(null);
 
   useEffect(() => {
@@ -237,23 +269,10 @@ export default function RosterPage() {
     });
   };
 
-  const toggleCategory = (c: Category) => {
-    setCategoryFilters((prev) => {
-      const next = new Set(prev);
-      next.has(c) ? next.delete(c) : next.add(c);
-      return next;
-    });
-  };
-
   const filtered = useMemo(() => {
     const activeMembers = members.filter((m) => {
       if (!m.active) return false;
       if (statusFilters.size > 0 && !statusFilters.has(m.status)) return false;
-      if (
-        categoryFilters.size > 0 &&
-        !m.activeCategories.some((c) => categoryFilters.has(c))
-      )
-        return false;
       return true;
     });
 
@@ -264,7 +283,7 @@ export default function RosterPage() {
       if (b.year === null) return -1;
       return yearSort === "asc" ? a.year - b.year : b.year - a.year;
     });
-  }, [members, statusFilters, categoryFilters, yearSort]);
+  }, [members, statusFilters, yearSort]);
 
   const dbEmpty = !isLoading && !error && members.length === 0;
 
@@ -335,20 +354,6 @@ export default function RosterPage() {
                 active={statusFilters.has(s)}
                 color={STATUS_CONFIG[s].color}
                 onClick={() => toggleStatus(s)}
-              />
-            ))}
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[12px] mr-1" style={{ color: "var(--text-muted)" }}>
-              Category
-            </span>
-            {CATEGORY_ORDER.map((c) => (
-              <FilterPill
-                key={c}
-                label={CATEGORY_CONFIG[c].label}
-                active={categoryFilters.has(c)}
-                color={CATEGORY_CONFIG[c].text}
-                onClick={() => toggleCategory(c)}
               />
             ))}
           </div>

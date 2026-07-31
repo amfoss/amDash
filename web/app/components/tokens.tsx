@@ -9,13 +9,27 @@ import { categoryConfig, STATUS_CONFIG } from "../data/categories";
 export function StatusToken({ status }: { status: Status }) {
   const cfg = STATUS_CONFIG[status];
   return (
-    <span className="chip font-medium uppercase tracking-[0.05em] text-[11px]">
+    <span
+      className="status-dot font-semibold uppercase tracking-[0.07em]"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        background: cfg.bg,
+        border: `1px solid ${cfg.border}`,
+        borderRadius: "999px",
+        color: cfg.color,
+        fontSize: "12px",
+        lineHeight: 1,
+        padding: "6px 12px",
+        whiteSpace: "nowrap",
+      }}
+    >
       <span
-        className="status-dot"
         style={{
           background: cfg.color,
-          width: "6px",
-          height: "6px",
+          width: "7px",
+          height: "7px",
           borderRadius: "50%",
           flexShrink: 0,
           display: "inline-block",

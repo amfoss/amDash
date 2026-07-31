@@ -40,10 +40,10 @@ export const CATEGORY_ORDER: Category[] = [
 
 // ── status display config ────────────────────────────────────────────────────
 
-export const STATUS_CONFIG: Record<Status, { color: string }> = {
-  ACTIVE:   { color: "#C9F158" },
-  SILENT:   { color: "#F5C451" },
-  INACTIVE: { color: "#F87171" },
+export const STATUS_CONFIG: Record<Status, { color: string; bg: string; border: string }> = {
+  ACTIVE:   { color: "#C9F158", bg: "rgba(201, 241, 88, 0.12)",  border: "rgba(201, 241, 88, 0.28)"  },
+  SILENT:   { color: "#F5C451", bg: "rgba(245, 196, 81, 0.12)",  border: "rgba(245, 196, 81, 0.28)"  },
+  INACTIVE: { color: "#F87171", bg: "rgba(248, 113, 113, 0.12)", border: "rgba(248, 113, 113, 0.28)" },
 };
 
 export const ALL_STATUSES: Status[] = ["ACTIVE", "SILENT", "INACTIVE"];
