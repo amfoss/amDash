@@ -4,10 +4,10 @@ Daily pipeline scheduler. Meant to run as a long-lived process in Docker.
 On startup:
   - checks pipeline_runs for today's date
   - if no successful run exists yet, fires the pipeline immediately (catch-up)
-  - then schedules it to run daily at RUN_TIME_UTC
+  - then schedules it to run daily at RUN_TIME_IST
 
 Env vars:
-  PIPELINE_RUN_TIME   HH:MM in UTC (default: "06:00")
+  PIPELINE_RUN_TIME   HH:MM in IST (default: "09:00")
 """
 
 import os
@@ -25,7 +25,7 @@ from root_client import sync_members
 
 load_dotenv()
 
-RUN_TIME_UTC = os.environ.get("PIPELINE_RUN_TIME", "09:00")
+RUN_TIME_IST = os.environ.get("PIPELINE_RUN_TIME", "09:00")
 
 
 def _today() -> str:
@@ -127,8 +127,8 @@ def run_pipeline() -> None:
 def main() -> None:
     init_db()
 
-    hour, minute = RUN_TIME_UTC.split(":")
-    print(f"Scheduler starting. Daily run at {RUN_TIME_UTC} UTC.")
+    hour, minute = RUN_TIME_IST.split(":")
+    print(f"Scheduler starting. Daily run at {RUN_TIME_IST} IST.")
 
     conn = get_conn()
     needs_catchup = not _already_ran_today(conn)
@@ -138,7 +138,7 @@ def main() -> None:
         print("No successful run for today yet — running pipeline now.")
         run_pipeline()
 
-    scheduler = BlockingScheduler(timezone="UTC")
+    scheduler = BlockingScheduler(timezone="Asia/Kolkata")
     scheduler.add_job(
         run_pipeline,
         trigger="cron",
