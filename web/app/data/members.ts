@@ -16,6 +16,7 @@ export interface Member {
   id: number;
   name: string;
   githubHandle: string | null;
+  year: number | null;
   status: Status;
   lastUpdateDaysAgo: number | null;
   lastUpdateDate: string | null;

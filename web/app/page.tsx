@@ -105,6 +105,11 @@ function MemberCard({ member }: { member: Member }) {
           <span className="text-[12px] tabular-nums" style={{ color: "var(--card-dim)" }}>
             {formatDaysAgo(member.lastUpdateDaysAgo)}
           </span>
+          {member.year !== null && (
+            <span className="text-[12px] tabular-nums" style={{ color: "var(--card-dim)" }}>
+              yr {member.year}
+            </span>
+          )}
           <span className="text-[12px] tabular-nums ml-auto" style={{ color: "var(--card-dim)" }}>
             {member.contribCount > 0 ? `${member.contribCount} contribs` : "—"}
           </span>
@@ -196,6 +201,7 @@ export default function RosterPage() {
 
   const [statusFilters, setStatusFilters] = useState<Set<Status>>(new Set());
   const [categoryFilters, setCategoryFilters] = useState<Set<Category>>(new Set());
+  const [yearSort, setYearSort] = useState<"asc" | "desc" | null>(null);
 
   useEffect(() => {
     fetch("/api/members")
@@ -240,7 +246,7 @@ export default function RosterPage() {
   };
 
   const filtered = useMemo(() => {
-    return members.filter((m) => {
+    const activeMembers = members.filter((m) => {
       if (!m.active) return false;
       if (statusFilters.size > 0 && !statusFilters.has(m.status)) return false;
       if (
@@ -250,7 +256,15 @@ export default function RosterPage() {
         return false;
       return true;
     });
-  }, [members, statusFilters, categoryFilters]);
+
+    if (!yearSort) return activeMembers;
+
+    return [...activeMembers].sort((a, b) => {
+      if (a.year === null) return 1;
+      if (b.year === null) return -1;
+      return yearSort === "asc" ? a.year - b.year : b.year - a.year;
+    });
+  }, [members, statusFilters, categoryFilters, yearSort]);
 
   const dbEmpty = !isLoading && !error && members.length === 0;
 
@@ -337,6 +351,16 @@ export default function RosterPage() {
                 onClick={() => toggleCategory(c)}
               />
             ))}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[12px] mr-1" style={{ color: "var(--text-muted)" }}>
+              Sort
+            </span>
+            <FilterPill
+              label={`year${yearSort === "asc" ? " ↑" : yearSort === "desc" ? " ↓" : ""}`}
+              active={yearSort !== null}
+              onClick={() => setYearSort((current) => (current === "asc" ? "desc" : "asc"))}
+            />
           </div>
         </div>
 
