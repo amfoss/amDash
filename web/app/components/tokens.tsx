@@ -2,33 +2,21 @@ import { type Category, type Status } from "../data/members";
 import { categoryConfig, STATUS_CONFIG } from "../data/categories";
 
 // ── status token ─────────────────────────────────────────────────────────────
-// INACTIVE reads as a quiet dropout (bare label); ACTIVE/SILENT are live signals
-// carried by a bordered token with a phosphor dot. Color is backed by the label,
-// never carried by color alone.
+// Pill with a colored dot; the label always backs the color, never color alone.
+// ACTIVE lime · SILENT amber · INACTIVE red. On lime surfaces the surrounding
+// card overrides the chip/dot colors via CSS variables (see .member-card).
 
 export function StatusToken({ status }: { status: Status }) {
   const cfg = STATUS_CONFIG[status];
-  if (status === "INACTIVE") {
-    return (
-      <span
-        style={{ color: cfg.color }}
-        className="text-[11px] font-bold tracking-[0.06em] uppercase"
-      >
-        inactive
-      </span>
-    );
-  }
   return (
-    <span
-      style={{ color: cfg.color, border: `1px solid ${cfg.color}44` }}
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[11px] font-bold tracking-[0.06em] uppercase"
-    >
+    <span className="chip font-medium uppercase tracking-[0.05em] text-[11px]">
       <span
+        className="status-dot"
         style={{
           background: cfg.color,
-          width: "5px",
-          height: "5px",
-          borderRadius: "1px",
+          width: "6px",
+          height: "6px",
+          borderRadius: "50%",
           flexShrink: 0,
           display: "inline-block",
         }}
@@ -39,15 +27,56 @@ export function StatusToken({ status }: { status: Status }) {
 }
 
 // ── category chip ────────────────────────────────────────────────────────────
+// Muted pill with a small hue dot; label always rendered.
 
 export function CategoryChip({ category }: { category: Category }) {
   const cfg = categoryConfig(category);
   return (
-    <span
-      style={{ background: cfg.bg, color: cfg.text, border: `1px solid ${cfg.text}22` }}
-      className="inline-flex items-center px-1.5 py-px rounded-sm text-[11px] tracking-[0.01em] whitespace-nowrap"
-    >
+    <span className="chip">
+      <span
+        style={{
+          background: cfg.text,
+          width: "5px",
+          height: "5px",
+          borderRadius: "50%",
+          flexShrink: 0,
+          display: "inline-block",
+        }}
+      />
       {cfg.label}
+    </span>
+  );
+}
+
+// ── avatar pod ───────────────────────────────────────────────────────────────
+// No member photos exist; initials in a circular pod stand in. Colors read
+// from --pod-bg/--pod-ink so accent cards restyle the pod via CSS.
+
+export function AvatarPod({ name, size = 44 }: { name: string; size?: number }) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
+  return (
+    <span
+      aria-hidden="true"
+      className="display font-semibold"
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        borderRadius: "50%",
+        background: "var(--pod-bg, var(--surface-2))",
+        color: "var(--pod-ink, var(--text-secondary))",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: `${Math.round(size * 0.36)}px`,
+        flexShrink: 0,
+      }}
+    >
+      {initials || "?"}
     </span>
   );
 }

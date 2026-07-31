@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { type Category, type Status } from "../../data/members";
 import { CATEGORY_ORDER, categoryConfig } from "../../data/categories";
-import { StatusToken, CategoryChip, formatDaysAgo } from "../../components/tokens";
+import { StatusToken, CategoryChip, AvatarPod, formatDaysAgo } from "../../components/tokens";
 
 // ── types ──────────────────────────────────────────────────────────────────────
 
@@ -65,12 +65,12 @@ interface MemberDetail {
   contributions: Contribution[];
 }
 
-// ── email modal ────────────────────────────────────────────────────────────────
+// ── email modal — the white counter-surface ────────────────────────────────────
 
-const PARSE_STATUS_COLOR: Record<string, string> = {
-  done:    "#4ADE80",
-  error:   "#F87171",
-  pending: "#FBBF24",
+const PARSE_STATUS_DOT: Record<string, string> = {
+  done:    "#4C9A2A",
+  error:   "#D4494B",
+  pending: "#C08A1E",
 };
 
 function EmailModal({
@@ -111,7 +111,8 @@ function EmailModal({
     };
   }, [onClose]);
 
-  const statusColor = data ? (PARSE_STATUS_COLOR[data.parse_status] ?? "#6B7A99") : "#6B7A99";
+  const dotColor = data ? (PARSE_STATUS_DOT[data.parse_status] ?? "#6E7076") : "#6E7076";
+  const inkDim = "rgba(18,19,22,0.55)";
 
   return (
     <div
@@ -120,7 +121,7 @@ function EmailModal({
         position: "fixed",
         inset: 0,
         zIndex: 100,
-        background: "rgba(0,0,0,0.55)",
+        background: "rgba(0,0,0,0.6)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -135,24 +136,23 @@ function EmailModal({
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "6px",
+          background: "var(--inverse)",
+          color: "var(--text-on-inverse)",
+          borderRadius: "24px",
           width: "100%",
           maxWidth: "760px",
           maxHeight: "calc(100vh - 32px)",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
           outline: "none",
         }}
       >
         {/* ── modal header ── */}
         <div
           style={{
-            padding: "14px 20px",
-            borderBottom: "1px solid var(--border)",
+            padding: "18px 24px",
+            borderBottom: "1px solid rgba(18,19,22,0.08)",
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "space-between",
@@ -161,47 +161,41 @@ function EmailModal({
           }}
         >
           <div className="flex flex-col gap-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span
-                className="text-[11px] tracking-[0.1em] uppercase font-bold"
-                style={{ color: "var(--accent)" }}
-              >
-                [ EMAIL #{emailId} ]
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="display text-[16px] font-semibold">
+                Email #{emailId}
               </span>
               {data && (
                 <span
-                  className="text-[10px] tracking-[0.06em] uppercase px-1.5 py-px rounded-sm"
-                  style={{
-                    color: statusColor,
-                    border: `1px solid ${statusColor}33`,
-                    background: `${statusColor}0D`,
-                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
+                  style={{ background: "rgba(18,19,22,0.06)", color: "var(--text-on-inverse)" }}
                 >
+                  <span
+                    style={{
+                      background: dotColor,
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      display: "inline-block",
+                    }}
+                    aria-hidden="true"
+                  />
                   {data.parse_status}
                 </span>
               )}
             </div>
             {data && (
               <>
-                <span
-                  className="text-[13px] font-medium truncate"
-                  style={{ color: "var(--text-primary)" }}
-                >
+                <span className="text-[13px] font-medium truncate">
                   {data.from_addr}
                 </span>
                 <div className="flex items-center gap-3 flex-wrap">
                   {data.subject && (
-                    <span
-                      className="text-[12px] truncate"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
+                    <span className="text-[12px] truncate" style={{ color: inkDim }}>
                       {data.subject}
                     </span>
                   )}
-                  <span
-                    className="text-[11px] tabular-nums shrink-0"
-                    style={{ color: "var(--text-muted)" }}
-                  >
+                  <span className="text-[11px] tabular-nums shrink-0" style={{ color: inkDim }}>
                     {data.received_at.slice(0, 16).replace("T", " · ")}
                   </span>
                 </div>
@@ -209,33 +203,47 @@ function EmailModal({
             )}
             {loading && (
               <div className="flex flex-col gap-1.5 mt-1">
-                <Skeleton w="180px" h="13px" />
-                <Skeleton w="240px" h="11px" />
+                <ModalSkeleton w="180px" h="13px" />
+                <ModalSkeleton w="240px" h="11px" />
               </div>
             )}
           </div>
           <button
             onClick={onClose}
-            className="text-[12px] shrink-0 transition-colors duration-75"
-            style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: "2px 0" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
             aria-label="Close email viewer"
+            className="shrink-0"
+            style={{
+              width: "36px",
+              height: "36px",
+              borderRadius: "50%",
+              background: "rgba(18,19,22,0.06)",
+              color: "var(--text-on-inverse)",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "background 160ms ease-out",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(18,19,22,0.12)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(18,19,22,0.06)")}
           >
-            [×]
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
 
         {/* ── body ── */}
         <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           {err ? (
-            <div className="p-5 text-[12px]" style={{ color: "#F87171" }}>
-              [ FAIL ] Could not load email #{emailId}: {err}
+            <div className="p-6 text-[13px]" style={{ color: "#D4494B" }}>
+              Could not load email #{emailId}: {err}
             </div>
           ) : loading ? (
-            <div className="p-5 flex flex-col gap-2">
+            <div className="p-6 flex flex-col gap-2">
               {Array.from({ length: 8 }, (_, i) => (
-                <Skeleton key={i} w={`${55 + (i % 5) * 8}%`} h="11px" />
+                <ModalSkeleton key={i} w={`${55 + (i % 5) * 8}%`} h="11px" />
               ))}
             </div>
           ) : data ? (
@@ -245,17 +253,17 @@ function EmailModal({
                 style={{
                   flex: 1,
                   overflowY: "auto",
-                  padding: "16px 20px",
-                  borderBottom: data.contributions.length > 0 ? "1px solid var(--border)" : "none",
+                  padding: "18px 24px",
+                  borderBottom: data.contributions.length > 0 ? "1px solid rgba(18,19,22,0.08)" : "none",
                 }}
               >
                 {data.raw_body.trim() ? (
                   <pre
                     style={{
-                      fontFamily: "inherit",
-                      fontSize: "11px",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "12px",
                       lineHeight: "1.7",
-                      color: "var(--text-secondary)",
+                      color: "rgba(18,19,22,0.8)",
                       whiteSpace: "pre-wrap",
                       wordBreak: "break-word",
                       margin: 0,
@@ -264,8 +272,8 @@ function EmailModal({
                     {data.raw_body}
                   </pre>
                 ) : (
-                  <span className="text-[12px]" style={{ color: "#FBBF24" }}>
-                    [ WARN ] No body stored for this email.
+                  <span className="text-[13px]" style={{ color: "#C08A1E" }}>
+                    No body stored for this email.
                   </span>
                 )}
               </div>
@@ -275,17 +283,14 @@ function EmailModal({
                 <div style={{ flexShrink: 0, maxHeight: "240px", overflowY: "auto" }}>
                   <div
                     style={{
-                      padding: "8px 20px",
-                      borderBottom: "1px solid var(--border-subtle)",
+                      padding: "10px 24px",
+                      borderBottom: "1px solid rgba(18,19,22,0.06)",
                       position: "sticky",
                       top: 0,
-                      background: "var(--surface)",
+                      background: "var(--inverse)",
                     }}
                   >
-                    <span
-                      className="text-[10px] tracking-[0.12em] uppercase"
-                      style={{ color: "var(--text-muted)" }}
-                    >
+                    <span className="text-[12px] font-medium" style={{ color: inkDim }}>
                       {data.contributions.length} contribution{data.contributions.length !== 1 ? "s" : ""} extracted
                     </span>
                   </div>
@@ -293,8 +298,8 @@ function EmailModal({
                     <div
                       key={c.id}
                       style={{
-                        padding: "9px 20px",
-                        borderBottom: i < data.contributions.length - 1 ? "1px solid var(--border-subtle)" : "none",
+                        padding: "10px 24px",
+                        borderBottom: i < data.contributions.length - 1 ? "1px solid rgba(18,19,22,0.06)" : "none",
                         display: "flex",
                         alignItems: "flex-start",
                         gap: "12px",
@@ -302,40 +307,60 @@ function EmailModal({
                     >
                       <span
                         className="text-[11px] tabular-nums shrink-0"
-                        style={{ color: "var(--text-muted)", width: "76px", marginTop: "1px" }}
+                        style={{ color: inkDim, width: "76px", marginTop: "3px" }}
                       >
                         {c.date.slice(0, 10)}
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <CategoryChip category={c.category as Category} />
+                          <span
+                            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]"
+                            style={{ background: "rgba(18,19,22,0.06)", color: "var(--text-on-inverse)" }}
+                          >
+                            <span
+                              style={{
+                                background: categoryConfig(c.category as Category).text,
+                                width: "5px",
+                                height: "5px",
+                                borderRadius: "50%",
+                                display: "inline-block",
+                              }}
+                              aria-hidden="true"
+                            />
+                            {categoryConfig(c.category as Category).label}
+                          </span>
                           {c.entity_name && (
-                            <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
-                              {c.entity_name}
-                            </span>
+                            <span className="text-[11px] font-medium">{c.entity_name}</span>
                           )}
                           {c.event_name && (
-                            <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                            <span className="text-[11px]" style={{ color: inkDim }}>
                               · {c.event_name}
                               {c.event_role ? ` (${c.event_role})` : ""}
                             </span>
                           )}
                         </div>
                         <p
-                          className="text-[11px] leading-relaxed"
-                          style={{ color: "var(--text-secondary)", margin: 0 }}
+                          className="text-[12px] leading-relaxed"
+                          style={{ color: "rgba(18,19,22,0.75)", margin: 0 }}
                         >
                           {c.activity_text}
                         </p>
                       </div>
                       <span
-                        className="text-[10px] tabular-nums shrink-0"
-                        style={{
-                          color: c.confidence >= 0.8 ? "#4ADE80" : c.confidence >= 0.5 ? "#FBBF24" : "#F87171",
-                          marginTop: "2px",
-                        }}
+                        className="text-[11px] tabular-nums shrink-0 inline-flex items-center gap-1.5"
+                        style={{ color: inkDim, marginTop: "3px" }}
                         title={`extraction confidence: ${Math.round(c.confidence * 100)}%`}
                       >
+                        <span
+                          style={{
+                            background: c.confidence >= 0.8 ? "#4C9A2A" : c.confidence >= 0.5 ? "#C08A1E" : "#D4494B",
+                            width: "6px",
+                            height: "6px",
+                            borderRadius: "50%",
+                            display: "inline-block",
+                          }}
+                          aria-hidden="true"
+                        />
                         {Math.round(c.confidence * 100)}%
                       </span>
                     </div>
@@ -353,7 +378,16 @@ function EmailModal({
 // ── helpers ────────────────────────────────────────────────────────────────────
 
 function Skeleton({ w, h = "12px" }: { w: string; h?: string }) {
-  return <span className="skeleton block rounded-sm" style={{ width: w, height: h }} />;
+  return <span className="skeleton block" style={{ width: w, height: h }} />;
+}
+
+function ModalSkeleton({ w, h = "12px" }: { w: string; h?: string }) {
+  return (
+    <span
+      className="skeleton block"
+      style={{ width: w, height: h, background: "rgba(18,19,22,0.08)" }}
+    />
+  );
 }
 
 // ── heatmap ────────────────────────────────────────────────────────────────────
@@ -409,7 +443,7 @@ function ActivityHeatmap({ contributions }: { contributions: Contribution[] }) {
       <div className="overflow-x-auto pb-1">
         <div style={{ width: "fit-content" }}>
           {/* month labels */}
-          <div className="relative mb-1" style={{ height: "14px" }}>
+          <div className="relative mb-1.5" style={{ height: "14px" }}>
             {monthLabels.map(({ label, colIndex }) => (
               <span
                 key={`${label}-${colIndex}`}
@@ -418,7 +452,7 @@ function ActivityHeatmap({ contributions }: { contributions: Contribution[] }) {
                   left: `${colIndex * 12}px`,
                   color: "var(--text-muted)",
                   fontSize: "10px",
-                  letterSpacing: "0.06em",
+                  letterSpacing: "0.04em",
                 }}
               >
                 {label}
@@ -437,9 +471,8 @@ function ActivityHeatmap({ contributions }: { contributions: Contribution[] }) {
                     style={{
                       width: "9px",
                       height: "9px",
-                      borderRadius: "2px",
-                      background: active ? "#4ADE80" : "var(--border)",
-                      opacity: active ? 0.85 : 1,
+                      borderRadius: "3px",
+                      background: active ? "var(--accent)" : "var(--surface-2)",
                       flexShrink: 0,
                     }}
                   />
@@ -450,13 +483,65 @@ function ActivityHeatmap({ contributions }: { contributions: Contribution[] }) {
         </div>
       </div>
 
-      <p className="mt-2 text-[10px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
+      <p className="mt-3 text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
         each cell = one calendar day ·{" "}
-        <span style={{ color: "#4ADE80" }}>■</span> email sent ·{" "}
-        measures <em style={{ fontStyle: "normal", color: "var(--text-secondary)" }}>reporting discipline</em>,
-        not work
+        <span
+          aria-hidden="true"
+          style={{
+            display: "inline-block",
+            width: "8px",
+            height: "8px",
+            borderRadius: "2px",
+            background: "var(--accent)",
+            verticalAlign: "baseline",
+          }}
+        />{" "}
+        email sent · measures{" "}
+        <span style={{ color: "var(--text-secondary)" }}>reporting discipline</span>, not work
       </p>
     </div>
+  );
+}
+
+// ── section card shell ─────────────────────────────────────────────────────────
+
+function SectionCard({
+  title,
+  dotColor,
+  children,
+}: {
+  title: string;
+  dotColor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      style={{
+        background: "var(--surface)",
+        borderRadius: "var(--radius-card)",
+        padding: "20px 24px 22px",
+      }}
+    >
+      <div className="flex items-center gap-2.5 mb-4">
+        {dotColor && (
+          <span
+            style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              background: dotColor,
+              flexShrink: 0,
+              display: "inline-block",
+            }}
+            aria-hidden="true"
+          />
+        )}
+        <h2 className="display text-[18px] font-semibold" style={{ color: "var(--text-primary)" }}>
+          {title}
+        </h2>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -466,43 +551,32 @@ function ClubProjectsSection({ entities }: { entities: EntitySummary[] }) {
   const projects = entities.filter((e) => e.category === "club-project");
 
   return (
-    <section>
-      <SectionHeader label="Club Projects" />
+    <SectionCard title="Club Projects" dotColor={categoryConfig("club-project").text}>
       {projects.length === 0 ? (
-        <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>
-          [ — ] No club project contributions indexed.
+        <p className="text-[13px]" style={{ color: "var(--text-muted)" }}>
+          No club project contributions indexed.
         </p>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
           {projects.map((p) => (
             <div
               key={p.entityId}
               style={{
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                borderRadius: "4px",
+                background: "var(--surface-2)",
+                borderRadius: "16px",
                 padding: "14px 16px",
               }}
             >
               <div className="flex items-baseline justify-between gap-4">
-                <span
-                  className="text-[14px] font-medium"
-                  style={{ color: "var(--text-primary)" }}
-                >
+                <span className="text-[14px] font-medium break-words" style={{ color: "var(--text-primary)" }}>
                   {p.displayName}
                 </span>
-                <span
-                  className="text-[11px] tabular-nums shrink-0"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {p.contribCount} contrib{p.contribCount !== 1 ? "s" : ""}
+                <span className="text-[12px] tabular-nums shrink-0" style={{ color: "var(--text-secondary)" }}>
+                  {p.contribCount}
                 </span>
               </div>
               {p.lastActive && (
-                <span
-                  className="mt-1 block text-[11px]"
-                  style={{ color: "var(--text-muted)" }}
-                >
+                <span className="mt-1 block text-[11px]" style={{ color: "var(--text-muted)" }}>
                   last active {p.lastActive}
                 </span>
               )}
@@ -510,7 +584,7 @@ function ClubProjectsSection({ entities }: { entities: EntitySummary[] }) {
           ))}
         </div>
       )}
-    </section>
+    </SectionCard>
   );
 }
 
@@ -529,32 +603,24 @@ function EntitySection({
   const overflow = entities.length - 10;
 
   return (
-    <section>
-      <SectionHeader label={cfg.label} color={cfg.text} />
-      <div
-        style={{
-          border: "1px solid var(--border)",
-          borderRadius: "4px",
-          overflow: "hidden",
-        }}
-      >
+    <SectionCard title={cfg.label} dotColor={cfg.text}>
+      <div>
         {visible.map((e, i) => (
           <div
             key={e.entityId}
-            className="flex items-center gap-3 px-4 py-2.5"
+            className="flex items-center gap-3 py-2.5"
             style={{
               borderBottom: i < visible.length - 1 ? "1px solid var(--border-subtle)" : "none",
-              background: "transparent",
             }}
           >
             <span className="flex-1 text-[13px] min-w-0 break-words" style={{ color: "var(--text-primary)" }}>
               {e.displayName}
             </span>
-            <span className="text-[11px] tabular-nums shrink-0" style={{ color: "var(--text-secondary)" }}>
+            <span className="text-[12px] tabular-nums shrink-0" style={{ color: "var(--text-secondary)" }}>
               {e.contribCount}
             </span>
             <span
-              className="text-[11px] tabular-nums w-[80px] text-right shrink-0"
+              className="text-[12px] tabular-nums w-[80px] text-right shrink-0"
               style={{ color: "var(--text-muted)" }}
             >
               {e.lastActive ?? "—"}
@@ -562,22 +628,12 @@ function EntitySection({
           </div>
         ))}
         {!expanded && overflow > 0 && (
-          <button
-            onClick={() => setExpanded(true)}
-            className="w-full px-4 py-2 text-[11px] text-left transition-colors duration-75"
-            style={{
-              color: "var(--text-muted)",
-              borderTop: "1px solid var(--border-subtle)",
-              background: "transparent",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
-          >
+          <button onClick={() => setExpanded(true)} className="pill mt-3">
             + {overflow} more
           </button>
         )}
       </div>
-    </section>
+    </SectionCard>
   );
 }
 
@@ -595,15 +651,8 @@ function ContributionLog({ contributions }: { contributions: Contribution[] }) {
   const closeEmail = useCallback(() => setActiveEmailId(null), []);
 
   return (
-    <section>
-      <SectionHeader label="Contribution Log" />
-      <div
-        style={{
-          border: "1px solid var(--border)",
-          borderRadius: "4px",
-          overflow: "hidden",
-        }}
-      >
+    <SectionCard title="Contribution Log">
+      <div className="flex flex-col">
         {visible.map((c, i) => (
           <ContribRow
             key={c.id}
@@ -614,31 +663,14 @@ function ContributionLog({ contributions }: { contributions: Contribution[] }) {
         ))}
       </div>
       {hasMore && (
-        <button
-          onClick={() => setPage((p) => p + 1)}
-          className="mt-2 w-full py-2 text-[11px] tracking-[0.06em] uppercase transition-colors duration-75"
-          style={{
-            color: "var(--text-muted)",
-            border: "1px solid var(--border)",
-            borderRadius: "4px",
-            background: "transparent",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "var(--text-secondary)";
-            e.currentTarget.style.borderColor = "var(--text-muted)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--text-muted)";
-            e.currentTarget.style.borderColor = "var(--border)";
-          }}
-        >
-          [ load more · {contributions.length - visible.length} remaining ]
+        <button onClick={() => setPage((p) => p + 1)} className="pill mt-4">
+          Load more · {contributions.length - visible.length} remaining
         </button>
       )}
       {activeEmailId !== null && (
         <EmailModal emailId={activeEmailId} onClose={closeEmail} />
       )}
-    </section>
+    </SectionCard>
   );
 }
 
@@ -670,83 +702,57 @@ function ContribRow({
       onMouseLeave={() => setHovered(false)}
       style={{
         borderBottom: last ? "none" : "1px solid var(--border-subtle)",
-        background: hovered ? "#0F1420" : "transparent",
-        transition: "background 75ms",
-        padding: "10px 16px",
+        background: hovered ? "var(--surface-2)" : "transparent",
+        transition: "background 160ms ease-out",
+        padding: "12px 12px",
+        margin: "0 -12px",
+        borderRadius: "14px",
         cursor: "pointer",
       }}
     >
       <div className="flex items-start gap-3">
         <span
-          className="text-[11px] tabular-nums shrink-0 mt-0.5"
+          className="text-[12px] tabular-nums shrink-0 mt-0.5"
           style={{ color: "var(--text-muted)", width: "80px" }}
         >
           {contrib.date.slice(0, 10)}
         </span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <CategoryChip category={contrib.category as Category} />
             {contrib.entity_name && (
-              <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+              <span className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
                 {contrib.entity_name}
               </span>
             )}
             {contrib.event_name && (
-              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+              <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>
                 · {contrib.event_name}
                 {contrib.event_role ? ` (${contrib.event_role})` : ""}
               </span>
             )}
           </div>
-          <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {contrib.activity_text}
           </p>
         </div>
         <span
           style={{
             color: "var(--accent)",
-            fontSize: "11px",
+            fontSize: "12px",
             flexShrink: 0,
             marginTop: "2px",
             opacity: hovered ? 1 : 0,
-            transition: "opacity 75ms",
+            transition: "opacity 160ms ease-out",
             userSelect: "none",
           }}
           aria-hidden="true"
         >
-          →
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M4 10L10 4M10 4H5.2M10 4V8.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </span>
       </div>
-    </div>
-  );
-}
-
-// ── section header ─────────────────────────────────────────────────────────────
-
-function SectionHeader({ label, color }: { label: string; color?: string }) {
-  return (
-    <div
-      className="flex items-center gap-2 mb-3"
-      style={{ borderBottom: "1px solid var(--border-subtle)", paddingBottom: "8px" }}
-    >
-      {color && (
-        <span
-          style={{
-            width: "6px",
-            height: "6px",
-            borderRadius: "50%",
-            background: color,
-            flexShrink: 0,
-            display: "inline-block",
-          }}
-        />
-      )}
-      <span
-        className="text-[10px] tracking-[0.12em] uppercase"
-        style={{ color: color ?? "var(--text-muted)" }}
-      >
-        {label}
-      </span>
     </div>
   );
 }
@@ -755,12 +761,16 @@ function SectionHeader({ label, color }: { label: string; color?: string }) {
 
 function HeroSkeleton() {
   return (
-    <div className="flex flex-col gap-3 pb-6" style={{ borderBottom: "1px solid var(--border)" }}>
-      <Skeleton w="160px" h="20px" />
+    <div
+      className="flex flex-col gap-4"
+      style={{ background: "var(--surface)", borderRadius: "var(--radius-card)", padding: "24px" }}
+    >
+      <span className="skeleton block" style={{ width: "56px", height: "56px", borderRadius: "50%" }} />
+      <Skeleton w="200px" h="24px" />
       <div className="flex items-center gap-4">
-        <Skeleton w="72px" h="22px" />
-        <Skeleton w="56px" h="14px" />
-        <Skeleton w="48px" h="14px" />
+        <Skeleton w="80px" h="28px" />
+        <Skeleton w="64px" h="28px" />
+        <Skeleton w="56px" h="28px" />
       </div>
     </div>
   );
@@ -768,23 +778,23 @@ function HeroSkeleton() {
 
 function SectionSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <section>
-      <div className="mb-3 pb-2" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-        <Skeleton w="100px" h="10px" />
+    <section
+      style={{ background: "var(--surface)", borderRadius: "var(--radius-card)", padding: "20px 24px" }}
+    >
+      <div className="mb-4">
+        <Skeleton w="120px" h="16px" />
       </div>
-      <div style={{ border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}>
-        {Array.from({ length: rows }, (_, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-3 px-4 py-3"
-            style={{ borderBottom: i < rows - 1 ? "1px solid var(--border-subtle)" : "none" }}
-          >
-            <Skeleton w={`${120 + (i % 3) * 40}px`} />
-            <span className="flex-1" />
-            <Skeleton w="32px" />
-          </div>
-        ))}
-      </div>
+      {Array.from({ length: rows }, (_, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-3 py-3"
+          style={{ borderBottom: i < rows - 1 ? "1px solid var(--border-subtle)" : "none" }}
+        >
+          <Skeleton w={`${120 + (i % 3) * 40}px`} />
+          <span className="flex-1" />
+          <Skeleton w="32px" />
+        </div>
+      ))}
     </section>
   );
 }
@@ -815,7 +825,7 @@ function CategoryBar({ contributions }: { contributions: Contribution[] }) {
   return (
     <div>
       {/* bar */}
-      <div className="flex w-full overflow-hidden" style={{ height: "6px", borderRadius: "3px", gap: "2px" }}>
+      <div className="flex w-full overflow-hidden" style={{ height: "8px", borderRadius: "999px", gap: "3px" }}>
         {segments.map(({ category, count, pct, cfg }) => (
           <div
             key={category}
@@ -823,15 +833,15 @@ function CategoryBar({ contributions }: { contributions: Contribution[] }) {
             style={{
               width: `${pct}%`,
               background: cfg.text,
-              opacity: 0.7,
-              borderRadius: "2px",
+              opacity: 0.8,
+              borderRadius: "999px",
               flexShrink: 0,
             }}
           />
         ))}
       </div>
       {/* legend */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
         {segments.map(({ category, count, cfg }) => (
           <span
             key={category}
@@ -844,12 +854,12 @@ function CategoryBar({ contributions }: { contributions: Contribution[] }) {
                 height: "6px",
                 borderRadius: "50%",
                 background: cfg.text,
-                opacity: 0.7,
+                opacity: 0.8,
                 flexShrink: 0,
                 display: "inline-block",
               }}
             />
-            <span style={{ color: cfg.text, opacity: 0.9 }}>{cfg.label}</span>
+            <span style={{ color: "var(--text-secondary)" }}>{cfg.label}</span>
             <span>{count}</span>
           </span>
         ))}
@@ -908,92 +918,96 @@ export default function MemberPage() {
     <div className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
 
       {/* ── top bar ── */}
-      <header
-        className="flex items-center justify-between px-4 sm:px-6 py-3.5"
-        style={{ borderBottom: "1px solid var(--border)" }}
-      >
-        <div className="flex items-center gap-3">
-          <a
-            href="/"
-            className="text-[11px] tracking-[0.04em] transition-colors duration-75"
-            style={{ color: "var(--text-muted)", textDecoration: "none" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
-          >
-            ← roster
-          </a>
-          <span
-            style={{ width: "1px", height: "12px", background: "var(--border)", display: "inline-block" }}
-          />
-          <span
-            className="text-[15px] font-bold tracking-[0.1em] uppercase"
-            style={{ color: "var(--text-primary)" }}
-          >
-            amDash
-          </span>
-        </div>
+      <header className="flex items-center gap-4 px-5 sm:px-8 py-5 w-full max-w-[960px] mx-auto">
+        <a href="/" className="pill" style={{ textDecoration: "none" }} aria-label="Back to roster">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M9 3L4 7L9 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          roster
+        </a>
+        <span
+          className="display text-[20px] font-bold tracking-[0.06em] uppercase"
+          style={{ color: "var(--text-primary)" }}
+        >
+          amDash
+        </span>
       </header>
 
-      <main className="flex-1 flex flex-col px-4 sm:px-6 py-6 gap-8 w-full max-w-4xl mx-auto">
+      <main className="flex-1 flex flex-col px-5 sm:px-8 pb-10 pt-1 gap-5 w-full max-w-[960px] mx-auto">
 
         {/* ── hero ── */}
         {isLoading ? (
           <HeroSkeleton />
         ) : error === "not-found" ? (
-          <p className="text-[13px]" style={{ color: "#F87171" }}>
-            [ ERROR ] Member not found.
-          </p>
+          <div style={{ background: "var(--surface)", borderRadius: "var(--radius-card)", padding: "24px" }}>
+            <p className="text-[14px]" style={{ color: "var(--danger)" }}>
+              Member not found.
+            </p>
+          </div>
         ) : error ? (
-          <p className="text-[13px]" style={{ color: "#F87171" }}>
-            [ ERROR ] Could not reach API: {error}
-          </p>
+          <div style={{ background: "var(--surface)", borderRadius: "var(--radius-card)", padding: "24px" }}>
+            <p className="text-[14px]" style={{ color: "var(--danger)" }}>
+              Could not reach the API: {error}
+            </p>
+          </div>
         ) : member ? (
-          <div className="pb-6" style={{ borderBottom: "1px solid var(--border)" }}>
-            <div className="flex items-start justify-between gap-4 mb-3">
-              <div className="min-w-0">
-                <h1
-                  className="text-[22px] font-medium mb-1 break-words"
-                  style={{ color: "var(--text-primary)", letterSpacing: "-0.01em" }}
-                >
-                  {member.name}
-                </h1>
-                {member.githubHandle && (
-                  <a
-                    href={`https://github.com/${member.githubHandle}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[12px] transition-colors duration-75"
-                    style={{ color: "var(--text-muted)", textDecoration: "none" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+          <div
+            style={{
+              background: "var(--surface)",
+              borderRadius: "var(--radius-card)",
+              padding: "24px",
+            }}
+          >
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div className="flex items-center gap-4 min-w-0">
+                <AvatarPod name={member.name} size={56} />
+                <div className="min-w-0">
+                  <h1
+                    className="display text-[26px] font-semibold break-words leading-tight"
+                    style={{ color: "var(--text-primary)" }}
                   >
-                    @{member.githubHandle}
-                  </a>
-                )}
+                    {member.name}
+                  </h1>
+                  {member.githubHandle && (
+                    <a
+                      href={`https://github.com/${member.githubHandle}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[13px] transition-colors duration-150"
+                      style={{ color: "var(--text-muted)", textDecoration: "none" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+                    >
+                      @{member.githubHandle}
+                    </a>
+                  )}
+                </div>
               </div>
               <div className="shrink-0">
                 <StatusToken status={member.status} />
               </div>
             </div>
 
-            <div
-              className="flex items-center gap-x-5 gap-y-1 flex-wrap text-[11px] tracking-[0.04em] mb-4"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <span>
-                last update{" "}
-                <span style={{ color: "var(--text-secondary)" }}>
+            {/* hero numerals */}
+            <div className="flex items-end gap-x-8 gap-y-3 flex-wrap mb-6">
+              <div className="flex items-baseline gap-2">
+                <span className="display font-bold tabular-nums text-[32px] leading-none" style={{ color: "var(--text-primary)" }}>
                   {formatDaysAgo(member.lastUpdateDaysAgo)}
                 </span>
-              </span>
-              <span style={{ opacity: 0.3 }}>|</span>
-              <span>
-                <span style={{ color: "var(--text-secondary)" }}>{member.activeDays}</span> active days
-              </span>
-              <span style={{ opacity: 0.3 }}>|</span>
-              <span>
-                <span style={{ color: "var(--text-secondary)" }}>{member.contribCount}</span> contributions
-              </span>
+                <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>last update</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="display font-bold tabular-nums text-[32px] leading-none" style={{ color: "var(--text-primary)" }}>
+                  {member.activeDays}
+                </span>
+                <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>active days</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="display font-bold tabular-nums text-[32px] leading-none" style={{ color: "var(--text-primary)" }}>
+                  {member.contribCount}
+                </span>
+                <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>contributions</span>
+              </div>
             </div>
 
             <CategoryBar contributions={member.contributions} />
@@ -1002,9 +1016,11 @@ export default function MemberPage() {
 
         {/* ── no data warning ── */}
         {noContribs && (
-          <p className="text-[13px]" style={{ color: "#FBBF24" }}>
-            [ WARN ] No contributions indexed for this member. Pipeline may not have run.
-          </p>
+          <div style={{ background: "var(--surface)", borderRadius: "var(--radius-card)", padding: "24px" }}>
+            <p className="text-[14px]" style={{ color: "var(--warning)" }}>
+              No contributions indexed for this member — the pipeline may not have run.
+            </p>
+          </div>
         )}
 
         {/* ── content sections ── */}
@@ -1023,10 +1039,9 @@ export default function MemberPage() {
             ))}
 
             {/* heatmap */}
-            <section>
-              <SectionHeader label="Reporting Cadence" />
+            <SectionCard title="Reporting Cadence">
               <ActivityHeatmap contributions={member.contributions} />
-            </section>
+            </SectionCard>
 
             {/* contribution log */}
             <ContributionLog contributions={member.contributions} />

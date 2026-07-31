@@ -1,28 +1,31 @@
 /*
-  THESIS: The club's daily self-reporting ritual is a boot log; the roster is the system state.
-  This surface refuses the card grid and opts for a dense tabular log — readable vertically,
-  with status tokens forming a phosphor stripe that tells the club's health story at a glance.
+  THESIS: A dark operations workspace where exactly one thing glows. The roster
+  refuses the log-table default: members are notched cards on a calm near-black
+  canvas, and the single lime accent is spent only on the one item that matters
+  right now.
 
-  OWN-WORLD: Deep terminal slate #0B0E14, three phosphor tones (green/amber/red) for operational
-  status, IBM Plex Mono throughout. No decorative color. Rows not cards.
+  OWN-WORLD: Near-black #0C0C0E canvas, soft #1A1B1E cards with 24px radius and
+  corner notches holding circular actions, pill chips and filters, one white
+  inverted material for overlays, lime #C9F158 as the only accent. Archivo,
+  wide-set for display.
 
-  STORY: A lead opens the roster, the phosphor column tells them who is quiet in seconds.
-  They click a name to see the full evidence trail.
+  STORY: A member opens the roster; the hero tallies and the one lime card say
+  who reported today. They click a card for the full evidence trail.
 
-  FIRST VIEWPORT: Full-width table, column-header strip at top, filter chips above.
-  Status column forms a visible vertical stripe. Member names are the primary landmark.
+  FIRST VIEWPORT: Wordmark + pipeline pill top; hero numerals (active/silent/
+  inactive); filter pill rows; notched member-card grid.
 
-  FORM: dmesg/POST log — candidate 7 of the grounded list; seed key 9bcfdea6.
+  FORM: Reference-pinned CRM workspace world, committed in DESIGN.md.
 */
 
 import type { Metadata } from "next";
-import { IBM_Plex_Mono } from "next/font/google";
+import { Archivo } from "next/font/google";
 import "./globals.css";
 
-const ibmPlexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
+const archivo = Archivo({
+  variable: "--font-archivo",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  axes: ["wdth"],
 });
 
 export const metadata: Metadata = {
@@ -36,8 +39,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${ibmPlexMono.variable} h-full`}>
-      <body className="min-h-full flex flex-col font-mono antialiased">
+    <html lang="en" className={`${archivo.variable} h-full`}>
+      <body className="min-h-full flex flex-col font-sans antialiased">
         {children}
       </body>
     </html>
