@@ -41,9 +41,9 @@ export const CATEGORY_ORDER: Category[] = [
 // ── status display config ────────────────────────────────────────────────────
 
 export const STATUS_CONFIG: Record<Status, { color: string }> = {
-  ACTIVE:   { color: "#4ADE80" },
-  SILENT:   { color: "#F87171" },
-  INACTIVE: { color: "#6B7A99" },
+  ACTIVE:   { color: "#C9F158" },
+  SILENT:   { color: "#F5C451" },
+  INACTIVE: { color: "#F87171" },
 };
 
 export const ALL_STATUSES: Status[] = ["ACTIVE", "SILENT", "INACTIVE"];

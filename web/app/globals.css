@@ -1,34 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --bg:               #0B0E14;
-  --surface:          #111620;
-  --border:           #1E2535;
-  --border-subtle:    #161C2A;
-  --text-primary:     #E2E8F6;
-  --text-secondary:   #8292B4;
-  --text-muted:       #6B7A99;
+  --bg:              #0C0C0E;
+  --surface:         #1A1B1E;
+  --surface-2:       #242528;
+  --surface-3:       #2E2F33;
+  --border:          #2A2B2F;
+  --border-subtle:   #222327;
 
-  --phosphor-green:   #4ADE80;
-  --phosphor-amber:   #FBBF24;
-  --phosphor-red:     #F87171;
-  --accent:           #3B82F6;
+  --inverse:         #FFFFFF;
+  --text-on-inverse: #121316;
 
-  --font-mono: var(--font-plex-mono), "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+  --text-primary:    #F4F5F7;
+  --text-secondary:  #9A9CA3;
+  --text-muted:      #6E7076;
+
+  --accent:          #C9F158;
+  --accent-ink:      #1A2405;
+  --positive:        #8FE388;
+  --warning:         #F5C451;
+  --danger:          #F87171;
+
+  --radius-card:     24px;
+
+  --font-sans: var(--font-archivo), "Archivo", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", monospace;
 }
 
 @theme inline {
   --color-bg:             var(--bg);
   --color-surface:        var(--surface);
+  --color-surface-2:      var(--surface-2);
   --color-border:         var(--border);
   --color-border-subtle:  var(--border-subtle);
   --color-primary:        var(--text-primary);
   --color-secondary:      var(--text-secondary);
   --color-muted:          var(--text-muted);
-  --color-green:          var(--phosphor-green);
-  --color-amber:          var(--phosphor-amber);
-  --color-red:            var(--phosphor-red);
   --color-accent:         var(--accent);
+  --color-warning:        var(--warning);
+  --color-danger:         var(--danger);
+  --font-sans:            var(--font-sans);
   --font-mono:            var(--font-mono);
 }
 
@@ -39,28 +50,163 @@
 html, body {
   background: var(--bg);
   color: var(--text-primary);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
+}
+
+/* Wide-set display voice — Archivo variable width axis */
+.display {
+  font-variation-settings: "wdth" 125;
+  letter-spacing: -0.01em;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--text-primary);
 }
 
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: 999px;
 }
 
+/* ── notched card ────────────────────────────────────────────────────────────
+   The card background is a separate masked layer so circular action buttons
+   sit inside a corner cut out of the card, floating on the page canvas. */
+
+.notch-card {
+  position: relative;
+}
+
+.notch-card__bg {
+  position: absolute;
+  inset: 0;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  /* punch a circular hole in the top-right corner */
+  -webkit-mask: radial-gradient(circle 27px at calc(100% - 22px) 22px, transparent 26px, black 27px);
+  mask: radial-gradient(circle 27px at calc(100% - 22px) 22px, transparent 26px, black 27px);
+  transition: background 160ms ease-out;
+}
+
+.notch-card:hover .notch-card__bg {
+  background: var(--surface-2);
+}
+
+.notch-btn {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  transition: background 160ms ease-out, color 160ms ease-out;
+}
+
+.notch-card:hover .notch-btn {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+
+/* ── member cards ────────────────────────────────────────────────────────────
+   ACTIVE cards flood lime on hover/focus; text, pod, and chips flip to ink
+   through these variables. */
+
+.member-card {
+  --card-ink: var(--text-primary);
+  --card-dim: var(--text-muted);
+  --pod-bg: var(--surface-2);
+  --pod-ink: var(--text-secondary);
+}
+
+.member-card--active:hover,
+.member-card--active:focus-visible {
+  --card-ink: var(--accent-ink);
+  --card-dim: rgba(26, 36, 5, 0.72);
+  --pod-bg: rgba(18, 19, 22, 0.12);
+  --pod-ink: var(--accent-ink);
+  --chip-bg: rgba(18, 19, 22, 0.12);
+  --chip-ink: var(--accent-ink);
+}
+
+.member-card--active:hover .notch-card__bg,
+.member-card--active:focus-visible .notch-card__bg {
+  background: var(--accent);
+}
+
+.member-card--active:hover .notch-btn,
+.member-card--active:focus-visible .notch-btn {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-ink);
+}
+
+.member-card--active:hover .status-dot,
+.member-card--active:focus-visible .status-dot {
+  background: var(--accent-ink) !important;
+}
+
+/* ── pills ───────────────────────────────────────────────────────────────── */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1;
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 160ms ease-out, color 160ms ease-out, border-color 160ms ease-out;
+}
+
+.pill:hover {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.pill[aria-pressed="true"] {
+  background: var(--inverse);
+  border-color: var(--inverse);
+  color: var(--text-on-inverse);
+  font-weight: 500;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  background: var(--chip-bg, var(--surface-2));
+  color: var(--chip-ink, var(--text-secondary));
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+/* ── skeleton ────────────────────────────────────────────────────────────── */
+
 @keyframes pulse-skeleton {
-  0%, 100% { opacity: 0.15; }
-  50%       { opacity: 0.3; }
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.75; }
 }
 
 .skeleton {
   animation: pulse-skeleton 1.5s ease-in-out infinite;
-  background: var(--border);
-  border-radius: 2px;
+  background: var(--surface-2);
+  border-radius: 999px;
 }
 
 @media (prefers-reduced-motion: reduce) {
