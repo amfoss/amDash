@@ -8,7 +8,6 @@ CLI usage:
 
 Importable:
   from ingest import run
-  run()                  # full pipeline for today
   run(date="2025-07-20")
 """
 import argparse
@@ -50,16 +49,14 @@ def _store_raw_emails(rows: list[dict], conn) -> list[int]:
     return ids
 
 
-def run(date: str | None = None, skip_dedup: bool = False) -> dict:
+def run(date: str, skip_dedup: bool = False) -> dict:
     """
     Run the full ingestion pipeline for a single date.
     Returns a summary dict: {emails_stored, contribs_extracted, entities_merged}.
     """
     conn = get_conn()
 
-    target_date: datetime | None = None
-    if date:
-        target_date = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    target_date = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
     from imap_fetcher import fetch_inbox
     emails = fetch_inbox(target_date)
@@ -166,7 +163,8 @@ def main() -> None:
         conn = get_conn()
         sync_members(conn)
         conn.close()
-        run(date=args.date)
+        today = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+        run(date=args.date or today)
 
 
 if __name__ == "__main__":

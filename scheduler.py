@@ -108,7 +108,7 @@ def run_pipeline() -> None:
         sync_members(conn)
         conn.close()
 
-        summary = ingest_run()
+        summary = ingest_run(date=run_date)
         conn = get_conn()
         _record_finish(conn, run_date, summary)
         conn.close()
