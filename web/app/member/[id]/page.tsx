@@ -960,7 +960,7 @@ export default function MemberPage() {
           >
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="flex items-center gap-4 min-w-0">
-                <AvatarPod name={member.name} size={56} />
+                <AvatarPod name={member.name} githubHandle={member.githubHandle} size={56} />
                 <div className="min-w-0">
                   <h1
                     className="display text-[26px] font-semibold break-words leading-tight"

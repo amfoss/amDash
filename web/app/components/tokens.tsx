@@ -1,5 +1,6 @@
 import { type Category, type Status } from "../data/members";
 import { categoryConfig, STATUS_CONFIG } from "../data/categories";
+import { useState } from "react";
 
 // ── status token ─────────────────────────────────────────────────────────────
 // Pill with a colored dot; the label always backs the color, never color alone.
@@ -66,13 +67,30 @@ export function CategoryChip({ category }: { category: Category }) {
 // No member photos exist; initials in a circular pod stand in. Colors read
 // from --pod-bg/--pod-ink so accent cards restyle the pod via CSS.
 
-export function AvatarPod({ name, size = 44 }: { name: string; size?: number }) {
+export function AvatarPod({ name, githubHandle ,size = 44 }: { name: string; githubHandle: string | null ;size?: number }) {
+  const avatarUrl = githubHandle
+  ? `https://github.com/${githubHandle}.png`
+  : null;
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase())
     .join("");
+  
+  const [imageFailed, setImageFailed] = useState(false);
+  if (avatarUrl && !imageFailed) {
+    return (
+      <img
+        src={avatarUrl}
+        width={size}
+        height={size}
+        alt={name}
+        className="rounded-full object-cover border border-zinc-700"
+        onError={() => setImageFailed(true)}
+      />
+    );
+  }
   return (
     <span
       aria-hidden="true"
